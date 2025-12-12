@@ -29,4 +29,5 @@ Route::post('prof-competencies/{id}/unapprove', [ProfCompetencyController::class
 // Дидактические единицы
 Route::apiResource('didactic-units', DidacticUnitController::class);
 Route::get('didactic-units-table', [DidacticUnitController::class, 'table']);
+Route::get('didactic-units-duplicates', [DidacticUnitController::class, 'duplicates']);
 

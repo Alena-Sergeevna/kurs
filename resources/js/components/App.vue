@@ -53,6 +53,15 @@
                         >
                             Таблица ДЕ
                         </button>
+                        <button
+                            @click="setCurrentView('duplicates')"
+                            class="px-4 py-2 rounded-lg font-medium transition-all duration-200"
+                            :class="currentView === 'duplicates' 
+                                ? 'bg-gradient-to-r from-orange-500 to-red-600 text-white shadow-lg' 
+                                : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-200'"
+                        >
+                            Анализ дубликатов
+                        </button>
                     </div>
                 </div>
             </div>
@@ -64,6 +73,7 @@
                 <RelationsTable v-if="currentView === 'table'" />
                 <DidacticUnitsView v-if="currentView === 'didactic'" />
                 <DidacticUnitsTable v-if="currentView === 'didactic-table'" />
+                <DuplicatesAnalysisView v-if="currentView === 'duplicates'" />
             </div>
         </main>
     </div>
@@ -75,6 +85,7 @@ import RelationsView from './views/RelationsView.vue';
 import RelationsTable from './views/RelationsTable.vue';
 import DidacticUnitsView from './views/DidacticUnitsView.vue';
 import DidacticUnitsTable from './views/DidacticUnitsTable.vue';
+import DuplicatesAnalysisView from './views/DuplicatesAnalysisView.vue';
 
 const currentView = ref('relations');
 
@@ -87,7 +98,7 @@ const setCurrentView = (view) => {
 // Восстанавливаем view из localStorage при загрузке
 onMounted(() => {
     const savedView = localStorage.getItem('currentView');
-    if (savedView && ['relations', 'table', 'didactic', 'didactic-table'].includes(savedView)) {
+    if (savedView && ['relations', 'table', 'didactic', 'didactic-table', 'duplicates'].includes(savedView)) {
         currentView.value = savedView;
     }
 });

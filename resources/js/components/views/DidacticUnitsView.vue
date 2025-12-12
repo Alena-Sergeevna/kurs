@@ -116,23 +116,29 @@
                                 </button>
                             </div>
 
-                            <!-- Текущие дидактические единицы -->
-                            <div v-if="editingSubjectId !== op.id" class="space-y-3">
-                                <div v-for="type in ['знать', 'уметь']" :key="type" class="space-y-2">
-                                    <div class="flex items-center gap-2">
-                                        <div class="w-2 h-2 bg-purple-500 rounded-full"></div>
-                                        <span class="text-sm font-bold text-gray-700 uppercase">{{ type }}:</span>
-                                    </div>
-                                    <div class="pl-4 space-y-1">
-                                        <div
-                                            v-for="unit in getDidacticUnitsByType(op.didactic_units || [], type)"
-                                            :key="unit.id"
-                                            class="text-sm text-gray-700 bg-white px-3 py-2 rounded-lg border border-gray-200 shadow-sm"
-                                        >
-                                            {{ unit.name }}
+                            <!-- Текущие дидактические единицы по ПК -->
+                            <div v-if="editingSubjectId !== op.id" class="space-y-4">
+                                <div v-if="getCompetenciesForSubject('op', op.id).length === 0" class="text-sm text-gray-400 italic">
+                                    ОП не привязана к ПК
+                                </div>
+                                <div v-else v-for="competency in getCompetenciesForSubject('op', op.id)" :key="competency.id" class="space-y-3 border-l-4 border-purple-400 pl-4">
+                                    <div class="font-semibold text-gray-800">{{ competency.name }}</div>
+                                    <div v-for="type in ['знать', 'уметь']" :key="type" class="space-y-2">
+                                        <div class="flex items-center gap-2">
+                                            <div class="w-2 h-2 bg-purple-500 rounded-full"></div>
+                                            <span class="text-xs font-bold text-gray-600 uppercase">{{ type }}:</span>
                                         </div>
-                                        <div v-if="getDidacticUnitsByType(op.didactic_units || [], type).length === 0" class="text-xs text-gray-400 italic">
-                                            Нет дидактических единиц
+                                        <div class="pl-4 space-y-1">
+                                            <div
+                                                v-for="unit in getDidacticUnitsByTypeAndCompetency(op.id, 'op', competency.id, type)"
+                                                :key="unit.id"
+                                                class="text-xs text-gray-700 bg-white px-2 py-1 rounded border border-gray-200"
+                                            >
+                                                {{ unit.name }}
+                                            </div>
+                                            <div v-if="getDidacticUnitsByTypeAndCompetency(op.id, 'op', competency.id, type).length === 0" class="text-xs text-gray-400 italic">
+                                                Нет ДЕ
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -189,16 +195,22 @@
             <template #footer>
                 <button
                     @click="closeModal"
-                    class="px-6 py-2 bg-white hover:bg-gray-50 text-gray-700 rounded-lg transition-all duration-200 font-semibold shadow-md hover:shadow-lg border border-gray-200"
+                    :disabled="saving"
+                    class="px-6 py-2 bg-white hover:bg-gray-50 text-gray-700 rounded-lg transition-all duration-200 font-semibold shadow-md hover:shadow-lg border border-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                     Отмена
                 </button>
                 <button
                     v-if="selectedCompetencyId"
                     @click="saveDidacticUnits(currentEditingType, currentEditingId)"
-                    class="px-6 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white rounded-lg transition-all duration-200 font-semibold shadow-lg hover:shadow-xl"
+                    :disabled="saving"
+                    class="px-6 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white rounded-lg transition-all duration-200 font-semibold shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                 >
-                    Сохранить
+                    <svg v-if="saving" class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    {{ saving ? 'Сохранение...' : 'Сохранить' }}
                 </button>
             </template>
         </Modal>
@@ -226,6 +238,7 @@ const currentEditingType = ref(null);
 const currentEditingTypes = ref([]);
 const modalTitle = ref('');
 const selectedCompetencyId = ref(null);
+const saving = ref(false);
 
 const getModuleNumber = (moduleId) => {
     const index = modules.value.findIndex(m => m.id === moduleId);
@@ -449,6 +462,7 @@ const saveDidacticUnits = async (type, subjectId) => {
     }
 
     try {
+        saving.value = true;
         const form = editForms.value[subjectId];
         
         // Собираем все выбранные дидактические единицы
@@ -472,6 +486,8 @@ const saveDidacticUnits = async (type, subjectId) => {
     } catch (error) {
         console.error('Ошибка сохранения дидактических единиц:', error);
         alert('Ошибка сохранения дидактических единиц');
+    } finally {
+        saving.value = false;
     }
 };
 
