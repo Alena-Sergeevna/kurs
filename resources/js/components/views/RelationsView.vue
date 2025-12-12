@@ -1,0 +1,425 @@
+<template>
+    <div>
+        <!-- Заголовок страницы -->
+        <div class="mb-10">
+            <h2 class="text-4xl font-extrabold text-gray-900 mb-3 tracking-tight">
+                Управление связями
+            </h2>
+            <p class="text-lg text-gray-600">Привязывайте МДК и ОП к профессиональным компетенциям</p>
+        </div>
+
+        <!-- Индикатор загрузки -->
+        <div v-if="loading" class="flex flex-col items-center justify-center py-20">
+            <div class="relative">
+                <div class="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
+                <div class="absolute inset-0 flex items-center justify-center">
+                    <div class="w-8 h-8 bg-blue-600 rounded-full animate-pulse"></div>
+                </div>
+            </div>
+            <p class="mt-6 text-gray-600 font-medium">Загрузка данных...</p>
+        </div>
+
+        <!-- Список модулей -->
+        <div v-else class="space-y-8">
+            <div
+                v-for="modul in moduls"
+                :key="modul.id"
+                class="group bg-white rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 overflow-hidden border border-gray-100"
+            >
+                <!-- Заголовок модуля -->
+                <div class="relative px-8 py-6 bg-gradient-to-r from-indigo-600 via-blue-600 to-cyan-500 overflow-hidden">
+                    <div class="absolute inset-0 bg-black/5"></div>
+                    <div class="relative flex items-center justify-between">
+                        <div class="flex items-center gap-4">
+                            <div class="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center shadow-lg">
+                                <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                                </svg>
+                            </div>
+                            <h3 class="text-2xl font-bold text-white">{{ modul.name }}</h3>
+                        </div>
+                        <div class="px-4 py-2 bg-white/20 backdrop-blur-sm rounded-full text-white text-sm font-semibold">
+                            {{ modul.prof_competencies?.length || 0 }} компетенций
+                        </div>
+                    </div>
+                </div>
+
+                <div class="px-8 py-6">
+                    <div
+                        v-for="(competency, idx) in modul.prof_competencies"
+                        :key="competency.id"
+                        class="mb-8 last:mb-0"
+                    >
+                        <!-- Заголовок компетенции -->
+                        <div class="flex items-start justify-between mb-6 pb-6 border-b border-gray-100 last:border-b-0">
+                            <div class="flex-1">
+                                <div class="flex items-start gap-3 mb-3">
+                                    <div class="mt-1 w-8 h-8 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center text-white font-bold text-sm shadow-md">
+                                        {{ idx + 1 }}
+                                    </div>
+                                    <div class="flex-1">
+                                        <h4 class="text-xl font-bold text-gray-900 mb-2 leading-tight">{{ competency.name }}</h4>
+                                        <div class="flex items-center gap-6 mt-3">
+                                            <div class="flex items-center gap-2 px-3 py-1.5 bg-blue-50 rounded-lg">
+                                                <div class="w-2 h-2 bg-blue-500 rounded-full"></div>
+                                                <span class="text-sm font-medium text-gray-700">
+                                                    МДК: <span class="text-blue-600 font-bold">{{ competency.modul_subjects?.length || 0 }}</span>
+                                                </span>
+                                            </div>
+                                            <div class="flex items-center gap-2 px-3 py-1.5 bg-purple-50 rounded-lg">
+                                                <div class="w-2 h-2 bg-purple-500 rounded-full"></div>
+                                                <span class="text-sm font-medium text-gray-700">
+                                                    ОП: <span class="text-purple-600 font-bold">{{ competency.op_subjects?.length || 0 }}</span>
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="ml-4 flex items-center gap-3">
+                                <button
+                                    v-if="!isApproved(competency) && hasDraft(competency)"
+                                    @click="approveRelations(competency.id)"
+                                    class="px-6 py-3 bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white rounded-xl transition-all duration-200 font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 flex items-center gap-2"
+                                >
+                                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                                    </svg>
+                                    Утвердить
+                                </button>
+                                <button
+                                    v-if="!isApproved(competency)"
+                                    @click="toggleEditMode(competency.id)"
+                                    class="px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white rounded-xl transition-all duration-200 font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 flex items-center gap-2"
+                                >
+                                    <svg v-if="editingCompetencyId !== competency.id" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                    </svg>
+                                    <svg v-else class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                    {{ editingCompetencyId === competency.id ? 'Отмена' : 'Редактировать' }}
+                                </button>
+                                <div
+                                    v-if="isApproved(competency)"
+                                    class="flex items-center gap-3"
+                                >
+                                    <div class="px-6 py-3 bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-xl font-semibold shadow-lg flex items-center gap-2">
+                                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                                        </svg>
+                                        Утверждено
+                                    </div>
+                                    <button
+                                        @click="unapproveRelations(competency.id)"
+                                        class="px-4 py-3 bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white rounded-xl transition-all duration-200 font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 flex items-center gap-2"
+                                        title="Разутвердить связи"
+                                    >
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Текущие связи -->
+                        <div v-if="editingCompetencyId !== competency.id" class="space-y-5">
+                            <!-- МДК -->
+                            <div>
+                                <div class="flex items-center gap-2 mb-4">
+                                    <div class="w-1 h-6 bg-gradient-to-b from-blue-500 to-blue-600 rounded-full"></div>
+                                    <h5 class="text-sm font-bold text-gray-700 uppercase tracking-wider">МДК</h5>
+                                </div>
+                                <div v-if="competency.modul_subjects && competency.modul_subjects.length > 0" class="flex flex-wrap gap-3">
+                                    <span
+                                        v-for="subject in competency.modul_subjects"
+                                        :key="subject.id"
+                                        class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 shadow-sm hover:shadow-md"
+                                        :class="subject.pivot?.approved
+                                            ? 'bg-gradient-to-r from-emerald-50 to-green-50 text-emerald-800 border-2 border-emerald-300'
+                                            : 'bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-800 border-2 border-blue-200 hover:border-blue-300'"
+                                    >
+                                        <span v-if="subject.pivot?.approved" class="text-emerald-600 font-bold">✓</span>
+                                        {{ subject.name }}
+                                    </span>
+                                </div>
+                                <div v-else class="text-sm text-gray-400 italic pl-3">МДК не привязаны</div>
+                            </div>
+
+                            <!-- ОП -->
+                            <div>
+                                <div class="flex items-center gap-2 mb-4">
+                                    <div class="w-1 h-6 bg-gradient-to-b from-purple-500 to-purple-600 rounded-full"></div>
+                                    <h5 class="text-sm font-bold text-gray-700 uppercase tracking-wider">ОП</h5>
+                                </div>
+                                <div v-if="competency.op_subjects && competency.op_subjects.length > 0" class="flex flex-wrap gap-3">
+                                    <span
+                                        v-for="subject in competency.op_subjects"
+                                        :key="subject.id"
+                                        class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 shadow-sm hover:shadow-md"
+                                        :class="subject.pivot?.approved
+                                            ? 'bg-gradient-to-r from-emerald-50 to-green-50 text-emerald-800 border-2 border-emerald-300'
+                                            : 'bg-gradient-to-r from-purple-50 to-pink-50 text-purple-800 border-2 border-purple-200 hover:border-purple-300'"
+                                    >
+                                        <span v-if="subject.pivot?.approved" class="text-emerald-600 font-bold">✓</span>
+                                        {{ subject.name }}
+                                    </span>
+                                </div>
+                                <div v-else class="text-sm text-gray-400 italic pl-3">ОП не привязаны</div>
+                            </div>
+                        </div>
+
+                        <!-- Форма редактирования -->
+                        <div v-else class="space-y-6 bg-gradient-to-br from-gray-50 to-blue-50/30 p-8 rounded-2xl border-2 border-blue-200/50 shadow-inner">
+                            <div>
+                                <label class="block text-sm font-bold text-gray-800 mb-4 flex items-center gap-2">
+                                    <div class="w-1.5 h-5 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full"></div>
+                                    МДК и ОП (можно выбрать несколько)
+                                </label>
+                                <MultiSelect
+                                    v-model="editForms[competency.id].subjectIds"
+                                    :items="getAvailableSubjects(modul.id)"
+                                    placeholder="Выберите МДК или ОП..."
+                                    :item-label="getSubjectLabel"
+                                    item-value="id"
+                                    :item-color="getSubjectColor"
+                                />
+                            </div>
+
+                            <div class="flex justify-end gap-3 pt-6 border-t border-gray-300">
+                                <button
+                                    @click="cancelEdit(competency.id)"
+                                    class="px-6 py-3 bg-white hover:bg-gray-50 text-gray-700 rounded-xl transition-all duration-200 font-semibold shadow-md hover:shadow-lg border border-gray-200"
+                                >
+                                    Отмена
+                                </button>
+                                <button
+                                    @click="saveRelations(competency.id)"
+                                    class="px-6 py-3 bg-gradient-to-r from-gray-500 to-gray-600 hover:from-gray-600 hover:to-gray-700 text-white rounded-xl transition-all duration-200 font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 flex items-center gap-2"
+                                >
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                                    </svg>
+                                    Сохранить черновик
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div v-if="!modul.prof_competencies || modul.prof_competencies.length === 0" class="text-center py-12 text-gray-400">
+                        <svg class="w-16 h-16 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        <p class="text-lg font-medium">Компетенции не найдены</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</template>
+
+<script setup>
+import { ref, onMounted } from 'vue';
+import axios from 'axios';
+import MultiSelect from '../ui/MultiSelect.vue';
+
+const moduls = ref([]);
+const allModulSubjects = ref([]);
+const allOpSubjects = ref([]);
+const loading = ref(true);
+const editingCompetencyId = ref(null);
+const editForms = ref({});
+
+const fetchData = async () => {
+    try {
+        loading.value = true;
+
+        const [modulsResponse, competenciesResponse, modulSubjectsResponse, opSubjectsResponse] = await Promise.all([
+            axios.get('/api/moduls'),
+            axios.get('/api/prof-competencies'),
+            axios.get('/api/modulsubjects'),
+            axios.get('/api/op-subjects'),
+        ]);
+
+        const modulsData = modulsResponse.data;
+        const allCompetencies = competenciesResponse.data;
+        allModulSubjects.value = modulSubjectsResponse.data;
+        allOpSubjects.value = opSubjectsResponse.data;
+
+        // Группируем компетенции по модулям
+        moduls.value = modulsData.map(modul => ({
+            ...modul,
+            prof_competencies: allCompetencies.filter(comp => comp.id_module === modul.id)
+        }));
+    } catch (error) {
+        console.error('Ошибка загрузки данных:', error);
+        alert('Ошибка загрузки данных');
+    } finally {
+        loading.value = false;
+    }
+};
+
+const isApproved = (competency) => {
+    const hasModulSubjects = competency.modul_subjects && competency.modul_subjects.length > 0;
+    const hasOpSubjects = competency.op_subjects && competency.op_subjects.length > 0;
+
+    if (!hasModulSubjects && !hasOpSubjects) return false;
+
+    const modulSubjectsApproved = hasModulSubjects
+        ? competency.modul_subjects.every(s => s.pivot?.approved)
+        : true;
+    const opSubjectsApproved = hasOpSubjects
+        ? competency.op_subjects.every(s => s.pivot?.approved)
+        : true;
+
+    return modulSubjectsApproved && opSubjectsApproved;
+};
+
+const getAvailableSubjects = (moduleId) => {
+    // Фильтруем МДК по модулю
+    const moduleModulSubjects = allModulSubjects.value.filter(ms => ms.id_module === moduleId);
+    
+    // Объединяем МДК и ОП с меткой типа
+    const combinedSubjects = [
+        ...moduleModulSubjects.map(ms => ({ ...ms, subjectType: 'mdk' })),
+        ...allOpSubjects.value.map(op => ({ ...op, subjectType: 'op' }))
+    ];
+    
+    return combinedSubjects;
+};
+
+const getSubjectLabel = (item) => {
+    const prefix = item.subjectType === 'mdk' ? 'МДК: ' : 'ОП: ';
+    return prefix + item.name;
+};
+
+const getSubjectColor = (item) => {
+    return item.subjectType === 'mdk'
+        ? 'bg-gradient-to-r from-blue-100 to-indigo-100 text-blue-800 border-blue-300'
+        : 'bg-gradient-to-r from-purple-100 to-pink-100 text-purple-800 border-purple-300';
+};
+
+const toggleEditMode = (competencyId) => {
+    if (editingCompetencyId.value === competencyId) {
+        editingCompetencyId.value = null;
+        delete editForms.value[competencyId];
+    } else {
+        editingCompetencyId.value = competencyId;
+
+        let competency = null;
+        let moduleId = null;
+        for (const modul of moduls.value) {
+            competency = modul.prof_competencies?.find(c => c.id === competencyId);
+            if (competency) {
+                moduleId = modul.id;
+                break;
+            }
+        }
+
+        if (competency) {
+            // Объединяем выбранные МДК и ОП в один массив
+            const selectedIds = [
+                ...(competency.modul_subjects || []).map(s => s.id),
+                ...(competency.op_subjects || []).map(s => s.id)
+            ];
+            
+            editForms.value[competencyId] = {
+                subjectIds: selectedIds,
+                moduleId: moduleId
+            };
+        }
+    }
+};
+
+const cancelEdit = (competencyId) => {
+    editingCompetencyId.value = null;
+    delete editForms.value[competencyId];
+};
+
+const saveRelations = async (competencyId) => {
+    try {
+        const form = editForms.value[competencyId];
+        const selectedIds = Array.isArray(form.subjectIds) ? form.subjectIds.map(id => parseInt(id)) : [];
+        
+        // Получаем доступные предметы для этого модуля
+        const availableSubjects = getAvailableSubjects(form.moduleId);
+        
+        // Разделяем на МДК и ОП
+        const modulSubjectIds = [];
+        const opSubjectIds = [];
+        
+        availableSubjects.forEach(subject => {
+            if (selectedIds.includes(subject.id)) {
+                if (subject.subjectType === 'mdk') {
+                    modulSubjectIds.push(subject.id);
+                } else {
+                    opSubjectIds.push(subject.id);
+                }
+            }
+        });
+
+        // Сохраняем как черновик (approved = false)
+        await axios.put(`/api/prof-competencies/${competencyId}/modul-subjects`, {
+            modul_subject_ids: modulSubjectIds,
+            approve: false
+        });
+
+        await axios.put(`/api/prof-competencies/${competencyId}/op-subjects`, {
+            op_subject_ids: opSubjectIds,
+            approve: false
+        });
+
+        await fetchData();
+        cancelEdit(competencyId);
+    } catch (error) {
+        console.error('Ошибка сохранения связей:', error);
+        alert('Ошибка сохранения связей');
+    }
+};
+
+const approveRelations = async (competencyId) => {
+    try {
+        await axios.post(`/api/prof-competencies/${competencyId}/approve`);
+        await fetchData();
+    } catch (error) {
+        console.error('Ошибка утверждения связей:', error);
+        alert('Ошибка утверждения связей');
+    }
+};
+
+const unapproveRelations = async (competencyId) => {
+    try {
+        await axios.post(`/api/prof-competencies/${competencyId}/unapprove`);
+        await fetchData();
+    } catch (error) {
+        console.error('Ошибка разутверждения связей:', error);
+        alert('Ошибка разутверждения связей');
+    }
+};
+
+const hasDraft = (competency) => {
+    const hasModulSubjects = competency.modul_subjects && competency.modul_subjects.length > 0;
+    const hasOpSubjects = competency.op_subjects && competency.op_subjects.length > 0;
+
+    if (!hasModulSubjects && !hasOpSubjects) return false;
+
+    // Проверяем, есть ли хотя бы одна неутвержденная связь
+    const hasUnapprovedModul = hasModulSubjects
+        ? competency.modul_subjects.some(s => !s.pivot?.approved)
+        : false;
+    const hasUnapprovedOp = hasOpSubjects
+        ? competency.op_subjects.some(s => !s.pivot?.approved)
+        : false;
+
+    return hasUnapprovedModul || hasUnapprovedOp;
+};
+
+onMounted(() => {
+    fetchData();
+});
+</script>
+
+<style scoped>
+/* Component styles */
+</style>
