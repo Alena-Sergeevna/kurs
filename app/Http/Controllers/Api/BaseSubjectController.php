@@ -64,7 +64,8 @@ abstract class BaseSubjectController extends Controller
             $subjectType,
             (int) $id,
             (int) $validated['prof_competency_id'],
-            $validated['didactic_unit_ids'] ?? []
+            $validated['didactic_unit_ids'] ?? [],
+            $validated['approve'] ?? false
         );
 
         return response()->json([

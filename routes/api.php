@@ -35,4 +35,17 @@ Route::apiResource('didactic-units', DidacticUnitController::class);
 Route::get('didactic-units-table', [DidacticUnitController::class, 'table']);
 Route::post('didactic-units/bulk-load-by-subjects', [DidacticUnitController::class, 'bulkLoadBySubjects']);
 Route::get('didactic-units-duplicates', [DidacticUnitController::class, 'duplicates']);
+Route::post('didactic-units/approve', [DidacticUnitController::class, 'approveDidacticUnits']);
+Route::post('didactic-units/unapprove', [DidacticUnitController::class, 'unapproveDidacticUnits']);
+
+// Черновики и версионирование
+use App\Http\Controllers\Api\DraftController;
+Route::get('drafts', [DraftController::class, 'index']);
+Route::get('drafts/find', [DraftController::class, 'findSubjectCompetencyDraft']);
+Route::post('drafts/subject-competency', [DraftController::class, 'createSubjectCompetencyDraft']);
+Route::post('drafts/didactic-unit', [DraftController::class, 'createDidacticUnitDraft']);
+Route::get('drafts/{draftBatchId}', [DraftController::class, 'show']);
+Route::get('drafts/{draftBatchId}/preview', [DraftController::class, 'preview']);
+Route::post('drafts/{draftBatchId}/apply', [DraftController::class, 'apply']);
+Route::delete('drafts/{draftBatchId}', [DraftController::class, 'destroy']);
 

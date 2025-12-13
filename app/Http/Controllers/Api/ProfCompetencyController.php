@@ -7,6 +7,7 @@ use App\Models\ProfCompetency;
 use App\Services\SubjectProfCompetencyService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\DB;
 
 class ProfCompetencyController extends Controller
 {
@@ -15,10 +16,17 @@ class ProfCompetencyController extends Controller
     ) {}
     public function index(Request $request): JsonResponse
     {
+        // Загружаем с явным указанием withPivot для правильной загрузки pivot данных
         $query = ProfCompetency::with([
             'modul:id,id,name',
-            'modulSubjects:id,name,id_module',
-            'opSubjects:id,name'
+            'modulSubjects' => function($query) {
+                // Не используем select, чтобы pivot загрузился правильно
+                $query->withPivot('approved', 'subject_type');
+            },
+            'opSubjects' => function($query) {
+                // Не используем select, чтобы pivot загрузился правильно
+                $query->withPivot('approved', 'subject_type');
+            }
         ]);
         
         if ($request->has('module_id')) {
@@ -26,6 +34,7 @@ class ProfCompetencyController extends Controller
         }
         
         $competencies = $query->get();
+        
         return response()->json($competencies);
     }
 

@@ -64,7 +64,25 @@
                                     МДК не привязана к ПК
                                 </div>
                                 <div v-else v-for="competency in getCompetenciesForSubject('mdk', mdk.id)" :key="competency.id" class="space-y-3 border-l-4 border-blue-400 pl-4">
-                                    <div class="font-semibold text-gray-800">{{ competency.name }}</div>
+                                    <div class="flex items-center justify-between">
+                                        <div class="font-semibold text-gray-800">{{ competency.name }}</div>
+                                        <div class="flex items-center gap-2">
+                                            <button
+                                                v-if="isCompetencyApproved('mdk', mdk.id, competency.id) && hasDidacticUnits('modul', mdk.id, competency.id) && !areDidacticUnitsApproved('modul', mdk.id, competency.id)"
+                                                @click="approveDidacticUnits('modul', mdk.id, competency.id)"
+                                                class="px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-all duration-200 text-xs font-medium shadow-md hover:shadow-lg flex items-center gap-1 cursor-pointer"
+                                                title="Утвердить ДЕ"
+                                            >
+                                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                                                </svg>
+                                                Утвердить ДЕ
+                                            </button>
+                                            <div v-if="!isCompetencyApproved('mdk', mdk.id, competency.id)" class="px-3 py-1.5 text-xs text-gray-400 italic">
+                                                Сначала утвердите связь
+                                            </div>
+                                        </div>
+                                    </div>
                                     <div v-for="type in ['знать', 'уметь', 'иметь практический опыт']" :key="type" class="space-y-2">
                                         <div class="flex items-center gap-2">
                                             <div class="w-2 h-2 bg-blue-500 rounded-full"></div>
@@ -74,9 +92,14 @@
                                             <div
                                                 v-for="unit in getDidacticUnitsByTypeAndCompetency(mdk.id, 'mdk', competency.id, type)"
                                                 :key="unit.id"
-                                                class="text-xs text-gray-700 bg-white px-2 py-1 rounded border border-gray-200"
+                                                class="text-xs text-gray-700 bg-white px-2 py-1 rounded border border-gray-200 flex items-center gap-2"
                                             >
-                                                {{ unit.name }}
+                                                <span>{{ unit.name }}</span>
+                                                <span v-if="hasDidacticUnitDraft('modul', mdk.id, competency.id)" 
+                                                      class="px-1.5 py-0.5 bg-yellow-100 text-yellow-800 rounded text-xs font-semibold"
+                                                      title="Есть оценка">
+                                                    ⭐
+                                                </span>
                                             </div>
                                             <div v-if="getDidacticUnitsByTypeAndCompetency(mdk.id, 'mdk', competency.id, type).length === 0" class="text-xs text-gray-400 italic">
                                                 Нет ДЕ
@@ -116,23 +139,52 @@
                                 </button>
                             </div>
 
-                            <!-- Текущие дидактические единицы -->
-                            <div v-if="editingSubjectId !== op.id" class="space-y-3">
-                                <div v-for="type in ['знать', 'уметь']" :key="type" class="space-y-2">
-                                    <div class="flex items-center gap-2">
-                                        <div class="w-2 h-2 bg-purple-500 rounded-full"></div>
-                                        <span class="text-sm font-bold text-gray-700 uppercase">{{ type }}:</span>
-                                    </div>
-                                    <div class="pl-4 space-y-1">
-                                        <div
-                                            v-for="unit in getDidacticUnitsByType(op.didactic_units || [], type)"
-                                            :key="unit.id"
-                                            class="text-sm text-gray-700 bg-white px-3 py-2 rounded-lg border border-gray-200 shadow-sm"
-                                        >
-                                            {{ unit.name }}
+                            <!-- Текущие дидактические единицы по ПК -->
+                            <div v-if="editingSubjectId !== op.id" class="space-y-4">
+                                <div v-if="getCompetenciesForSubject('op', op.id).length === 0" class="text-sm text-gray-400 italic">
+                                    ОП не привязана к ПК
+                                </div>
+                                <div v-else v-for="competency in getCompetenciesForSubject('op', op.id)" :key="competency.id" class="space-y-3 border-l-4 border-purple-400 pl-4">
+                                    <div class="flex items-center justify-between">
+                                        <div class="font-semibold text-gray-800">{{ competency.name }}</div>
+                                        <div class="flex items-center gap-2">
+                                            <button
+                                                v-if="isCompetencyApproved('op', op.id, competency.id) && hasDidacticUnits('op', op.id, competency.id) && !areDidacticUnitsApproved('op', op.id, competency.id)"
+                                                @click="approveDidacticUnits('op', op.id, competency.id)"
+                                                class="px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-all duration-200 text-xs font-medium shadow-md hover:shadow-lg flex items-center gap-1 cursor-pointer"
+                                                title="Утвердить ДЕ"
+                                            >
+                                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                                                </svg>
+                                                Утвердить ДЕ
+                                            </button>
+                                            <div v-if="!isCompetencyApproved('op', op.id, competency.id)" class="px-3 py-1.5 text-xs text-gray-400 italic">
+                                                Сначала утвердите связь
+                                            </div>
                                         </div>
-                                        <div v-if="getDidacticUnitsByType(op.didactic_units || [], type).length === 0" class="text-xs text-gray-400 italic">
-                                            Нет дидактических единиц
+                                    </div>
+                                    <div v-for="type in ['знать', 'уметь']" :key="type" class="space-y-2">
+                                        <div class="flex items-center gap-2">
+                                            <div class="w-2 h-2 bg-purple-500 rounded-full"></div>
+                                            <span class="text-xs font-bold text-gray-600 uppercase">{{ type }}:</span>
+                                        </div>
+                                        <div class="pl-4 space-y-1">
+                                            <div
+                                                v-for="unit in getDidacticUnitsByTypeAndCompetency(op.id, 'op', competency.id, type)"
+                                                :key="unit.id"
+                                                class="text-xs text-gray-700 bg-white px-2 py-1 rounded border border-gray-200 flex items-center gap-2"
+                                            >
+                                                <span>{{ unit.name }}</span>
+                                                <span v-if="hasDidacticUnitDraft('op', op.id, competency.id)" 
+                                                      class="px-1.5 py-0.5 bg-yellow-100 text-yellow-800 rounded text-xs font-semibold"
+                                                      title="Есть оценка">
+                                                    ⭐
+                                                </span>
+                                            </div>
+                                            <div v-if="getDidacticUnitsByTypeAndCompetency(op.id, 'op', competency.id, type).length === 0" class="text-xs text-gray-400 italic">
+                                                Нет ДЕ
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -202,17 +254,36 @@
                 </button>
             </template>
         </Modal>
+
+        <!-- Редактор черновиков ДЕ -->
+        <DidacticUnitDraftEditor
+            :show="showDidacticUnitDraftEditor"
+            :subject-type="didacticUnitDraftEditorData.subjectType"
+            :subject-id="didacticUnitDraftEditorData.subjectId"
+            :subject-name="didacticUnitDraftEditorData.subjectName"
+            :competency-id="didacticUnitDraftEditorData.competencyId"
+            :competency-name="didacticUnitDraftEditorData.competencyName"
+            :current-units="didacticUnitDraftEditorData.currentUnits"
+            :all-didactic-units="didacticUnits"
+            :existing-draft="didacticUnitDraftEditorData.existingDraft"
+            :draft-batch-id="didacticUnitDraftEditorData.draftBatchId"
+            @close="closeDidacticUnitDraftEditor"
+            @saved="onDidacticUnitDraftSaved"
+        />
     </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import axios from 'axios';
 import Modal from '../ui/Modal.vue';
 import DidacticUnitEditor from '../ui/DidacticUnitEditor.vue';
+import DidacticUnitDraftEditor from '../ui/DidacticUnitDraftEditor.vue';
 import { useErrorHandler } from '../../composables/useErrorHandler';
+import { useDrafts } from '../../composables/useDrafts';
 
 const { handleError } = useErrorHandler();
+const { findDidacticUnitDraft } = useDrafts();
 
 const loading = ref(true);
 const modules = ref([]);
@@ -279,16 +350,19 @@ const getCompetenciesForSubject = (subjectType, subjectId) => {
     if (subjectType === 'mdk') {
         return (subject.prof_competencies || []).map(c => ({
             id: c.id,
-            name: c.name
+            name: c.name,
+            pivot: c.pivot // Сохраняем pivot данные для проверки утверждения
         }));
     } else {
         // Для ОП находим ПК через компетенции
         const relatedCompetencies = [];
         competencies.value.forEach(comp => {
             if (comp.op_subjects && comp.op_subjects.some(op => op.id === subjectId)) {
+                const op = comp.op_subjects.find(op => op.id === subjectId);
                 relatedCompetencies.push({
                     id: comp.id,
-                    name: comp.name
+                    name: comp.name,
+                    pivot: op?.pivot // Сохраняем pivot данные для проверки утверждения
                 });
             }
         });
@@ -297,6 +371,190 @@ const getCompetenciesForSubject = (subjectType, subjectId) => {
 };
 
 const didacticUnitsByCompetency = ref({});
+const didacticUnitDraftsMap = ref(new Map()); // Map для хранения черновиков ДЕ: key = "subjectType_subjectId_competencyId"
+
+// Проверка наличия черновика ДЕ для связи
+const hasDidacticUnitDraft = (subjectType, subjectId, competencyId) => {
+    const key = `${subjectType}_${subjectId}_${competencyId}`;
+    return didacticUnitDraftsMap.value.has(key);
+};
+
+// Проверка утверждения связи ПК-МДК/ОП
+const isCompetencyApproved = (subjectType, subjectId, competencyId) => {
+    if (subjectType === 'mdk') {
+        const subject = modulSubjects.value.find(s => s.id === subjectId);
+        if (!subject || !subject.prof_competencies) return false;
+        const comp = subject.prof_competencies.find(c => c.id === competencyId);
+        if (!comp) return false;
+        // Проверяем pivot данные - может быть объект или значение напрямую
+        const pivot = comp.pivot;
+        if (!pivot) return false;
+        // Проверяем разные форматы данных
+        const approved = pivot.approved !== undefined ? pivot.approved : (comp.approved !== undefined ? comp.approved : false);
+        return approved === true || approved === 1 || approved === '1';
+    } else {
+        // Для ОП проверяем через компетенции
+        const competency = competencies.value.find(c => c.id === competencyId);
+        if (!competency || !competency.op_subjects) return false;
+        const op = competency.op_subjects.find(s => s.id === subjectId);
+        if (!op) return false;
+        // Проверяем pivot данные - может быть объект или значение напрямую
+        const pivot = op.pivot;
+        if (!pivot) return false;
+        // Проверяем разные форматы данных
+        const approved = pivot.approved !== undefined ? pivot.approved : (op.approved !== undefined ? op.approved : false);
+        return approved === true || approved === 1 || approved === '1';
+    }
+};
+
+// Проверка утверждения всех ДЕ для связи
+const areDidacticUnitsApproved = (subjectType, subjectId, competencyId) => {
+    const key = `${subjectType}_${subjectId}_${competencyId}`;
+    const units = didacticUnitsByCompetency.value[key] || [];
+    if (units.length === 0) return false; // Если нет ДЕ, считаем что не утверждено
+    // Проверяем разные форматы данных (boolean, int, string)
+    return units.every(unit => {
+        const approved = unit.approved;
+        return approved === true || approved === 1 || approved === '1';
+    });
+};
+
+// Проверка наличия ДЕ для связи
+const hasDidacticUnits = (subjectType, subjectId, competencyId) => {
+    const key = `${subjectType}_${subjectId}_${competencyId}`;
+    const units = didacticUnitsByCompetency.value[key] || [];
+    return units.length > 0;
+};
+
+// Утвердить ДЕ для связи
+const approveDidacticUnits = async (subjectType, subjectId, competencyId) => {
+    try {
+        await axios.post('/api/didactic-units/approve', {
+            subject_type: subjectType,
+            subject_id: subjectId,
+            prof_competency_id: competencyId
+        });
+        await loadDidacticUnitsForDisplay();
+    } catch (error) {
+        handleError(error, 'Ошибка утверждения ДЕ');
+    }
+};
+
+// Разутвердить ДЕ для связи
+const unapproveDidacticUnits = async (subjectType, subjectId, competencyId) => {
+    try {
+        await axios.post('/api/didactic-units/unapprove', {
+            subject_type: subjectType,
+            subject_id: subjectId,
+            prof_competency_id: competencyId
+        });
+        await loadDidacticUnitsForDisplay();
+    } catch (error) {
+        handleError(error, 'Ошибка разутверждения ДЕ');
+    }
+};
+
+// Получить ID модуля для предмета
+const getModuleIdForSubject = (subjectType, subjectId) => {
+    if (subjectType === 'mdk') {
+        const subject = modulSubjects.value.find(s => s.id === subjectId);
+        return subject?.id_module || null;
+    } else {
+        // Для ОП находим через компетенции
+        const competency = competencies.value.find(c => 
+            c.op_subjects?.some(op => op.id === subjectId)
+        );
+        return competency?.id_module || null;
+    }
+};
+
+// Открыть редактор черновиков ДЕ
+// Для редактора черновиков ДЕ
+const showDidacticUnitDraftEditor = ref(false);
+const didacticUnitDraftEditorData = ref({
+    subjectType: '',
+    subjectId: null,
+    subjectName: '',
+    competencyId: null,
+    competencyName: '',
+    currentUnits: [],
+    existingDraft: null,
+    draftBatchId: null
+});
+
+const openDidacticUnitDraftEditor = async (subjectType, subjectId, subjectName, competencyId, competencyName, moduleId) => {
+    // Проверяем утверждение связи
+    if (!isCompetencyApproved(subjectType === 'modul' ? 'mdk' : 'op', subjectId, competencyId)) {
+        handleError(new Error('Связь не утверждена'), 'Нельзя оценить ДЕ для неутвержденной связи');
+        return;
+    }
+    
+    try {
+        // Загружаем текущие ДЕ для этой связи
+        const apiSubjectType = subjectType === 'modul' ? 'modul' : 'op';
+        const key = `${apiSubjectType}_${subjectId}_${competencyId}`;
+        const currentUnits = didacticUnitsByCompetency.value[key] || [];
+        
+        // Ищем существующий черновик
+        const existingDraft = await findDidacticUnitDraft(apiSubjectType, subjectId, competencyId);
+        
+        didacticUnitDraftEditorData.value = {
+            subjectType: apiSubjectType,
+            subjectId,
+            subjectName,
+            competencyId,
+            competencyName,
+            currentUnits,
+            allDidacticUnits: didacticUnits.value,
+            existingDraft: existingDraft || null,
+            draftBatchId: existingDraft?.draft_batch_id || null
+        };
+        
+        showDidacticUnitDraftEditor.value = true;
+    } catch (error) {
+        handleError(error, 'Ошибка открытия редактора черновиков ДЕ');
+    }
+};
+
+const closeDidacticUnitDraftEditor = () => {
+    showDidacticUnitDraftEditor.value = false;
+};
+
+const onDidacticUnitDraftSaved = async () => {
+    // Обновляем данные после сохранения
+    await loadDidacticUnitsForDisplay();
+};
+
+// Загрузка черновиков ДЕ
+const loadDidacticUnitDrafts = async () => {
+    try {
+        const draftsResponse = await axios.get('/api/drafts').catch(() => ({ data: [] }));
+        didacticUnitDraftsMap.value.clear();
+        
+        if (draftsResponse.data && draftsResponse.data.length > 0) {
+            // Загружаем детали черновиков параллельно
+            const draftDetailsPromises = draftsResponse.data.slice(0, 20).map(draftSummary => 
+                axios.get(`/api/drafts/${draftSummary.draft_batch_id}`).catch(() => null)
+            );
+            const draftDetailsResults = await Promise.all(draftDetailsPromises);
+            
+            draftDetailsResults.forEach((draftDetails, index) => {
+                if (draftDetails?.data?.didactic_unit_changes) {
+                    draftDetails.data.didactic_unit_changes.forEach(change => {
+                        const key = `${change.context.subject_type}_${change.context.subject_id}_${change.context.prof_competency_id}`;
+                        didacticUnitDraftsMap.value.set(key, {
+                            draftBatchId: draftsResponse.data[index].draft_batch_id,
+                            action: change.action,
+                            comment: change.comment
+                        });
+                    });
+                }
+            });
+        }
+    } catch (error) {
+        console.warn('Ошибка загрузки черновиков ДЕ:', error);
+    }
+};
 
 const getDidacticUnitsByTypeAndCompetency = (subjectId, subjectType, competencyId, typeRu) => {
     // Преобразуем 'mdk' в 'modul' для соответствия ключам из API
@@ -352,6 +610,9 @@ const loadDidacticUnitsForDisplay = async () => {
         Object.keys(response.data).forEach(key => {
             didacticUnitsByCompetency.value[key] = response.data[key];
         });
+        
+        // Загружаем черновики ДЕ
+        await loadDidacticUnitDrafts();
     } catch (error) {
         handleError(error, 'Ошибка загрузки ДЕ');
         // Инициализируем пустые массивы при ошибке

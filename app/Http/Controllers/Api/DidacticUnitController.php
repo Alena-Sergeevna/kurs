@@ -49,6 +49,50 @@ class DidacticUnitController extends Controller
         $unit->update($validated);
         return response()->json($unit);
     }
+    
+    /**
+     * Утвердить ДЕ для связи предмет-ПК
+     */
+    public function approveDidacticUnits(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'subject_type' => 'required|in:modul,op',
+            'subject_id' => 'required|integer',
+            'prof_competency_id' => 'required|integer|exists:prof_competencies,id',
+        ]);
+        
+        $this->subjectDidacticUnitService->approveDidacticUnits(
+            $validated['subject_type'],
+            $validated['subject_id'],
+            $validated['prof_competency_id']
+        );
+        
+        return response()->json([
+            'message' => 'Дидактические единицы утверждены'
+        ]);
+    }
+    
+    /**
+     * Разутвердить ДЕ для связи предмет-ПК
+     */
+    public function unapproveDidacticUnits(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'subject_type' => 'required|in:modul,op',
+            'subject_id' => 'required|integer',
+            'prof_competency_id' => 'required|integer|exists:prof_competencies,id',
+        ]);
+        
+        $this->subjectDidacticUnitService->unapproveDidacticUnits(
+            $validated['subject_type'],
+            $validated['subject_id'],
+            $validated['prof_competency_id']
+        );
+        
+        return response()->json([
+            'message' => 'Дидактические единицы разутверждены'
+        ]);
+    }
 
     public function destroy(string $id): JsonResponse
     {

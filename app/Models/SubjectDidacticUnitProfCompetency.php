@@ -17,7 +17,12 @@ class SubjectDidacticUnitProfCompetency extends Model
         'subject_type',
         'subject_id',
         'didactic_unit_id',
-        'prof_competency_id'
+        'prof_competency_id',
+        'approved'
+    ];
+    
+    protected $casts = [
+        'approved' => 'boolean'
     ];
 
     /**

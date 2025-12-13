@@ -22,7 +22,8 @@ class SubjectDidacticUnitService
         string $subjectType,
         int $subjectId,
         int $profCompetencyId,
-        array $didacticUnitIds
+        array $didacticUnitIds,
+        bool $approve = false
     ): void {
         // Удаляем все старые связи для этой пары предмет-ПК
         SubjectDidacticUnitProfCompetency::where('subject_id', $subjectId)
@@ -32,17 +33,46 @@ class SubjectDidacticUnitService
         
         // Добавляем новые связи
         if (!empty($didacticUnitIds)) {
-            $insertData = array_map(function($unitId) use ($subjectType, $subjectId, $profCompetencyId) {
+            $insertData = array_map(function($unitId) use ($subjectType, $subjectId, $profCompetencyId, $approve) {
                 return [
                     'subject_type' => $subjectType,
                     'subject_id' => $subjectId,
                     'didactic_unit_id' => $unitId,
                     'prof_competency_id' => $profCompetencyId,
+                    'approved' => $approve,
                 ];
             }, $didacticUnitIds);
             
             SubjectDidacticUnitProfCompetency::insert($insertData);
         }
+    }
+    
+    /**
+     * Утвердить все ДЕ для связи предмет-ПК
+     */
+    public function approveDidacticUnits(
+        string $subjectType,
+        int $subjectId,
+        int $profCompetencyId
+    ): void {
+        SubjectDidacticUnitProfCompetency::where('subject_type', $subjectType)
+            ->where('subject_id', $subjectId)
+            ->where('prof_competency_id', $profCompetencyId)
+            ->update(['approved' => true]);
+    }
+    
+    /**
+     * Разутвердить все ДЕ для связи предмет-ПК
+     */
+    public function unapproveDidacticUnits(
+        string $subjectType,
+        int $subjectId,
+        int $profCompetencyId
+    ): void {
+        SubjectDidacticUnitProfCompetency::where('subject_type', $subjectType)
+            ->where('subject_id', $subjectId)
+            ->where('prof_competency_id', $profCompetencyId)
+            ->update(['approved' => false]);
     }
 
     /**
@@ -111,6 +141,7 @@ class SubjectDidacticUnitService
                             'id' => $item->didacticUnit->id,
                             'name' => $item->didacticUnit->name,
                             'type' => $item->didacticUnit->type,
+                            'approved' => $item->approved,
                         ];
                     });
                 });
@@ -140,6 +171,7 @@ class SubjectDidacticUnitService
                             'id' => $item->didacticUnit->id,
                             'name' => $item->didacticUnit->name,
                             'type' => $item->didacticUnit->type,
+                            'approved' => $item->approved,
                         ];
                     });
                 });

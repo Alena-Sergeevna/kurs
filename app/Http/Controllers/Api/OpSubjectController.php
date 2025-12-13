@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\OpSubject;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\DB;
 
 class OpSubjectController extends BaseSubjectController
 {
@@ -25,10 +26,15 @@ class OpSubjectController extends BaseSubjectController
     }
     public function index(): JsonResponse
     {
+        // Загружаем с явным указанием withPivot для правильной загрузки pivot данных
         $subjects = OpSubject::with([
-            'profCompetencies:id,name',
+            'profCompetencies' => function($query) {
+                // Не используем select, чтобы pivot загрузился правильно
+                $query->withPivot('approved', 'subject_type');
+            },
             'didacticUnits:id,type,name'
         ])->get();
+        
         return response()->json($subjects);
     }
 

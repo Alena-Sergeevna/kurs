@@ -131,18 +131,48 @@
                                     <div class="w-1 h-6 bg-gradient-to-b from-blue-500 to-blue-600 rounded-full"></div>
                                     <h5 class="text-sm font-bold text-gray-700 uppercase tracking-wider">МДК</h5>
                                 </div>
-                                <div v-if="competency.modul_subjects && competency.modul_subjects.length > 0" class="flex flex-wrap gap-3">
-                                    <span
+                                <div v-if="competency.modul_subjects && competency.modul_subjects.length > 0" class="space-y-2">
+                                    <div
                                         v-for="subject in competency.modul_subjects"
                                         :key="subject.id"
-                                        class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 shadow-sm hover:shadow-md"
+                                        class="flex items-center justify-between p-3 rounded-xl transition-all duration-200 shadow-sm hover:shadow-md"
                                         :class="subject.pivot?.approved
-                                            ? 'bg-gradient-to-r from-emerald-50 to-green-50 text-emerald-800 border-2 border-emerald-300'
-                                            : 'bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-800 border-2 border-blue-200 hover:border-blue-300'"
+                                            ? 'bg-gradient-to-r from-emerald-50 to-green-50 border-2 border-emerald-300'
+                                            : 'bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 hover:border-blue-300'"
                                     >
-                                        <span v-if="subject.pivot?.approved" class="text-emerald-600 font-bold">✓</span>
-                                        {{ subject.name }}
-                                    </span>
+                                        <span class="inline-flex items-center gap-2 text-sm font-medium"
+                                            :class="subject.pivot?.approved ? 'text-emerald-800' : 'text-blue-800'"
+                                        >
+                                            <span v-if="subject.pivot?.approved" class="text-emerald-600 font-bold">✓</span>
+                                            {{ subject.name }}
+                                            <span v-if="hasDraftForRelation('modul', subject.id, competency.id)" 
+                                                  class="px-1.5 py-0.5 bg-yellow-100 text-yellow-800 rounded text-xs font-semibold"
+                                                  title="Есть оценка">
+                                                ⭐
+                                            </span>
+                                        </span>
+                                        <button
+                                            v-if="subject.pivot?.approved"
+                                            @click="openDraftEditor('modul', subject.id, subject.name, competency.id, competency.name, modul.id)"
+                                            class="px-3 py-1.5 rounded-lg transition-all duration-200 text-xs font-medium shadow-md hover:shadow-lg flex items-center gap-1"
+                                            :class="hasDraftForRelation('modul', subject.id, competency.id)
+                                                ? 'bg-yellow-500 hover:bg-yellow-600 text-white'
+                                                : 'bg-blue-500 hover:bg-blue-600 text-white'"
+                                            :title="hasDraftForRelation('modul', subject.id, competency.id) ? 'Редактировать оценку' : 'Оценить'"
+                                        >
+                                            <svg v-if="hasDraftForRelation('modul', subject.id, competency.id)" class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                            </svg>
+                                            <svg v-else class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                                            </svg>
+                                            {{ hasDraftForRelation('modul', subject.id, competency.id) ? 'Редактировать оценку' : 'Оценить' }}
+                                            <span v-if="hasDraftForRelation('modul', subject.id, competency.id)" class="ml-1 text-xs">●</span>
+                                        </button>
+                                        <div v-else class="px-3 py-1.5 text-xs text-gray-400 italic">
+                                            Сначала утвердите связь
+                                        </div>
+                                    </div>
                                 </div>
                                 <div v-else class="text-sm text-gray-400 italic pl-3">МДК не привязаны</div>
                             </div>
@@ -153,18 +183,48 @@
                                     <div class="w-1 h-6 bg-gradient-to-b from-purple-500 to-purple-600 rounded-full"></div>
                                     <h5 class="text-sm font-bold text-gray-700 uppercase tracking-wider">ОП</h5>
                                 </div>
-                                <div v-if="competency.op_subjects && competency.op_subjects.length > 0" class="flex flex-wrap gap-3">
-                                    <span
+                                <div v-if="competency.op_subjects && competency.op_subjects.length > 0" class="space-y-2">
+                                    <div
                                         v-for="subject in competency.op_subjects"
                                         :key="subject.id"
-                                        class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 shadow-sm hover:shadow-md"
+                                        class="flex items-center justify-between p-3 rounded-xl transition-all duration-200 shadow-sm hover:shadow-md"
                                         :class="subject.pivot?.approved
-                                            ? 'bg-gradient-to-r from-emerald-50 to-green-50 text-emerald-800 border-2 border-emerald-300'
-                                            : 'bg-gradient-to-r from-purple-50 to-pink-50 text-purple-800 border-2 border-purple-200 hover:border-purple-300'"
+                                            ? 'bg-gradient-to-r from-emerald-50 to-green-50 border-2 border-emerald-300'
+                                            : 'bg-gradient-to-r from-purple-50 to-pink-50 border-2 border-purple-200 hover:border-purple-300'"
                                     >
-                                        <span v-if="subject.pivot?.approved" class="text-emerald-600 font-bold">✓</span>
-                                        {{ subject.name }}
-                                    </span>
+                                        <span class="inline-flex items-center gap-2 text-sm font-medium"
+                                            :class="subject.pivot?.approved ? 'text-emerald-800' : 'text-purple-800'"
+                                        >
+                                            <span v-if="subject.pivot?.approved" class="text-emerald-600 font-bold">✓</span>
+                                            {{ subject.name }}
+                                            <span v-if="hasDraftForRelation('op', subject.id, competency.id)" 
+                                                  class="px-1.5 py-0.5 bg-yellow-100 text-yellow-800 rounded text-xs font-semibold"
+                                                  title="Есть оценка">
+                                                ⭐
+                                            </span>
+                                        </span>
+                                        <button
+                                            v-if="subject.pivot?.approved"
+                                            @click="openDraftEditor('op', subject.id, subject.name, competency.id, competency.name, modul.id)"
+                                            class="px-3 py-1.5 rounded-lg transition-all duration-200 text-xs font-medium shadow-md hover:shadow-lg flex items-center gap-1"
+                                            :class="hasDraftForRelation('op', subject.id, competency.id)
+                                                ? 'bg-yellow-500 hover:bg-yellow-600 text-white'
+                                                : 'bg-purple-500 hover:bg-purple-600 text-white'"
+                                            :title="hasDraftForRelation('op', subject.id, competency.id) ? 'Редактировать оценку' : 'Оценить'"
+                                        >
+                                            <svg v-if="hasDraftForRelation('op', subject.id, competency.id)" class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                            </svg>
+                                            <svg v-else class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                                            </svg>
+                                            {{ hasDraftForRelation('op', subject.id, competency.id) ? 'Редактировать оценку' : 'Оценить' }}
+                                            <span v-if="hasDraftForRelation('op', subject.id, competency.id)" class="ml-1 text-xs">●</span>
+                                        </button>
+                                        <div v-else class="px-3 py-1.5 text-xs text-gray-400 italic">
+                                            Сначала утвердите связь
+                                        </div>
+                                    </div>
                                 </div>
                                 <div v-else class="text-sm text-gray-400 italic pl-3">ОП не привязаны</div>
                             </div>
@@ -216,16 +276,57 @@
                 </div>
             </div>
         </div>
+
+        <!-- Компонент редактора черновиков -->
+        <DraftEditor
+            :show="showDraftEditor"
+            :subject-type="draftEditorData.subjectType"
+            :subject-id="draftEditorData.subjectId"
+            :subject-name="draftEditorData.subjectName"
+            :competency-id="draftEditorData.competencyId"
+            :competency-name="draftEditorData.competencyName"
+            :competency-module-id="draftEditorData.competencyModuleId"
+            :available-competencies="availableCompetenciesList"
+            :existing-draft="draftEditorData.existingDraft"
+            :draft-batch-id="draftEditorData.draftBatchId"
+            @close="closeDraftEditor"
+            @saved="onDraftSaved"
+            @openDidacticUnitDraftEditor="handleOpenDidacticUnitDraftEditor"
+        />
+        
+        <!-- Редактор черновиков ДЕ -->
+        <DidacticUnitDraftEditor
+            :show="showDidacticUnitDraftEditor"
+            :subject-type="didacticUnitDraftEditorData.subjectType"
+            :subject-id="didacticUnitDraftEditorData.subjectId"
+            :subject-name="didacticUnitDraftEditorData.subjectName"
+            :competency-id="didacticUnitDraftEditorData.competencyId"
+            :competency-name="didacticUnitDraftEditorData.competencyName"
+            :current-units="didacticUnitDraftEditorData.currentUnits"
+            :all-didactic-units="didacticUnitDraftEditorData.allDidacticUnits"
+            :existing-draft="didacticUnitDraftEditorData.existingDraft"
+            :draft-batch-id="didacticUnitDraftEditorData.draftBatchId"
+            :is-move="didacticUnitDraftEditorData.isMove"
+            :original-competency-id="didacticUnitDraftEditorData.originalCompetencyId"
+            :original-subject-type="didacticUnitDraftEditorData.originalSubjectType"
+            :original-subject-id="didacticUnitDraftEditorData.originalSubjectId"
+            @close="closeDidacticUnitDraftEditor"
+            @saved="onDidacticUnitDraftSaved"
+        />
     </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import axios from 'axios';
 import MultiSelect from '../ui/MultiSelect.vue';
+import DraftEditor from '../ui/DraftEditor.vue';
+import DidacticUnitDraftEditor from '../ui/DidacticUnitDraftEditor.vue';
 import { useErrorHandler } from '../../composables/useErrorHandler';
+import { useDrafts } from '../../composables/useDrafts';
 
 const { handleError } = useErrorHandler();
+const { fetchDrafts, findSubjectCompetencyDraft, findDidacticUnitDraft } = useDrafts();
 
 const moduls = ref([]);
 const allModulSubjects = ref([]);
@@ -233,6 +334,36 @@ const allOpSubjects = ref([]);
 const loading = ref(true);
 const editingCompetencyId = ref(null);
 const editForms = ref({});
+
+// Для редактора черновиков
+const showDraftEditor = ref(false);
+const draftEditorData = ref({
+    subjectType: '',
+    subjectId: null,
+    subjectName: '',
+    competencyId: null,
+    competencyName: '',
+    competencyModuleId: null
+});
+const allCompetencies = ref([]);
+const draftsMap = ref(new Map()); // Map для хранения черновиков: key = "subjectType_subjectId_competencyId"
+
+// Computed для передачи компетенций в DraftEditor
+const availableCompetenciesList = computed(() => {
+    return allCompetencies.value || [];
+});
+
+// Проверка наличия черновика для связи
+const hasDraftForRelation = (subjectType, subjectId, competencyId) => {
+    const key = `${subjectType}_${subjectId}_${competencyId}`;
+    return draftsMap.value.has(key);
+};
+
+// Получить черновик для связи
+const getDraftForRelation = (subjectType, subjectId, competencyId) => {
+    const key = `${subjectType}_${subjectId}_${competencyId}`;
+    return draftsMap.value.get(key) || null;
+};
 
 const fetchData = async () => {
     try {
@@ -246,14 +377,43 @@ const fetchData = async () => {
         ]);
 
         const modulsData = modulsResponse.data;
-        const allCompetencies = competenciesResponse.data;
+        allCompetencies.value = competenciesResponse.data;
         allModulSubjects.value = modulSubjectsResponse.data;
         allOpSubjects.value = opSubjectsResponse.data;
+
+        // Загружаем черновики и создаем карту
+        try {
+            const draftsResponse = await axios.get('/api/drafts');
+            draftsMap.value.clear();
+            if (draftsResponse.data && draftsResponse.data.length > 0) {
+                // Загружаем детали черновиков параллельно
+                const draftDetailsPromises = draftsResponse.data.slice(0, 20).map(draftSummary => 
+                    axios.get(`/api/drafts/${draftSummary.draft_batch_id}`).catch(() => null)
+                );
+                const draftDetailsResults = await Promise.all(draftDetailsPromises);
+                
+                draftDetailsResults.forEach((draftDetails, index) => {
+                    if (draftDetails?.data?.subject_competency_changes) {
+                        draftDetails.data.subject_competency_changes.forEach(change => {
+                            const key = `${change.original.subject_type}_${change.original.subject_id}_${change.original.prof_competency_id}`;
+                            draftsMap.value.set(key, {
+                                draftBatchId: draftsResponse.data[index].draft_batch_id,
+                                action: change.action,
+                                comment: change.comment
+                            });
+                        });
+                    }
+                });
+            }
+        } catch (error) {
+            // Игнорируем ошибки загрузки черновиков
+            console.warn('Ошибка загрузки черновиков:', error);
+        }
 
         // Группируем компетенции по модулям
         moduls.value = modulsData.map(modul => ({
             ...modul,
-            prof_competencies: allCompetencies.filter(comp => comp.id_module === modul.id)
+            prof_competencies: allCompetencies.value.filter(comp => comp.id_module === modul.id)
         }));
     } catch (error) {
         handleError(error, 'Ошибка загрузки данных');
@@ -417,6 +577,147 @@ const hasDraft = (competency) => {
         : false;
 
     return hasUnapprovedModul || hasUnapprovedOp;
+};
+
+const openDraftEditor = async (subjectType, subjectId, subjectName, competencyId, competencyName, competencyModuleId) => {
+    // Проверяем утверждение связи
+    const competency = moduls.value
+        .flatMap(m => m.prof_competencies || [])
+        .find(c => c.id === competencyId);
+    
+    if (!competency) {
+        handleError(new Error('Компетенция не найдена'), 'Ошибка');
+        return;
+    }
+    
+    // Проверяем утверждение конкретной связи
+    const subject = subjectType === 'modul' 
+        ? competency.modul_subjects?.find(s => s.id === subjectId)
+        : competency.op_subjects?.find(s => s.id === subjectId);
+    
+    if (!subject || !subject.pivot?.approved) {
+        handleError(new Error('Связь не утверждена'), 'Нельзя оценить неутвержденную связь');
+        return;
+    }
+    
+    // Проверяем существование черновика
+    const existingDraft = await findSubjectCompetencyDraft(subjectType, subjectId, competencyId);
+    
+    draftEditorData.value = {
+        subjectType,
+        subjectId,
+        subjectName,
+        competencyId,
+        competencyName,
+        competencyModuleId,
+        existingDraft: existingDraft || null,
+        draftBatchId: existingDraft?.draft_batch_id || null
+    };
+    showDraftEditor.value = true;
+};
+
+const closeDraftEditor = () => {
+    showDraftEditor.value = false;
+};
+
+const onDraftSaved = async () => {
+    await fetchDrafts(); // Обновляем список черновиков
+    // Обновляем карту черновиков
+    await fetchData(); // Перезагружаем данные для обновления визуальных индикаторов
+};
+
+// Для редактора черновиков ДЕ
+const showDidacticUnitDraftEditor = ref(false);
+const didacticUnitDraftEditorData = ref({
+    subjectType: '',
+    subjectId: null,
+    subjectName: '',
+    competencyId: null,
+    competencyName: '',
+    currentUnits: [],
+    allDidacticUnits: [],
+    existingDraft: null,
+    draftBatchId: null,
+    isMove: false,
+    originalCompetencyId: null,
+    originalSubjectType: null,
+    originalSubjectId: null
+});
+
+const handleOpenDidacticUnitDraftEditor = async (data) => {
+    try {
+        // Загружаем все ДЕ
+        const unitsResponse = await axios.get('/api/didactic-units');
+        const allDidacticUnits = unitsResponse.data || [];
+        
+        // Если это перенос (есть originalCompetencyId), загружаем ДЕ из старого ПК
+        let currentUnits = [];
+        if (data.originalCompetencyId && data.originalSubjectType && data.originalSubjectId) {
+            // Загружаем ДЕ из старого ПК (откуда переносим)
+            const originalKey = `${data.originalSubjectType}_${data.originalSubjectId}_${data.originalCompetencyId}`;
+            try {
+                const response = await axios.post('/api/didactic-units/bulk-load-by-subjects', {
+                    subjects: [{
+                        subject_type: data.originalSubjectType,
+                        subject_id: data.originalSubjectId,
+                        competency_id: data.originalCompetencyId
+                    }]
+                });
+                currentUnits = response.data[originalKey] || [];
+                console.log('Loaded units from original PC:', currentUnits);
+            } catch (e) {
+                console.warn('Error loading units from original PC:', e);
+                currentUnits = [];
+            }
+        } else {
+            // Загружаем текущие ДЕ для этой связи (если есть)
+            const key = `${data.subjectType}_${data.subjectId}_${data.competencyId}`;
+            try {
+                const response = await axios.post('/api/didactic-units/bulk-load-by-subjects', {
+                    subjects: [{
+                        subject_type: data.subjectType,
+                        subject_id: data.subjectId,
+                        competency_id: data.competencyId
+                    }]
+                });
+                currentUnits = response.data[key] || [];
+            } catch (e) {
+                currentUnits = [];
+            }
+        }
+        
+        // Ищем существующий черновик ДЕ
+        const existingDraft = await findDidacticUnitDraft(data.subjectType, data.subjectId, data.competencyId);
+        
+        didacticUnitDraftEditorData.value = {
+            subjectType: data.subjectType,
+            subjectId: data.subjectId,
+            subjectName: data.subjectName,
+            competencyId: data.competencyId, // Новый ПК
+            competencyName: data.competencyName,
+            currentUnits, // ДЕ из старого ПК (если перенос) или текущие ДЕ
+            allDidacticUnits,
+            existingDraft: existingDraft || null,
+            draftBatchId: data.draftBatchId || null,
+            // Информация о переносе
+            isMove: !!(data.originalCompetencyId && data.originalSubjectType && data.originalSubjectId),
+            originalCompetencyId: data.originalCompetencyId || null,
+            originalSubjectType: data.originalSubjectType || null,
+            originalSubjectId: data.originalSubjectId || null
+        };
+        
+        showDidacticUnitDraftEditor.value = true;
+    } catch (error) {
+        handleError(error, 'Ошибка открытия редактора черновиков ДЕ');
+    }
+};
+
+const closeDidacticUnitDraftEditor = () => {
+    showDidacticUnitDraftEditor.value = false;
+};
+
+const onDidacticUnitDraftSaved = async () => {
+    await fetchDrafts(); // Обновляем список черновиков
 };
 
 onMounted(() => {
