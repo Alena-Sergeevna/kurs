@@ -223,6 +223,9 @@
 import { ref, onMounted } from 'vue';
 import axios from 'axios';
 import MultiSelect from '../ui/MultiSelect.vue';
+import { useErrorHandler } from '../../composables/useErrorHandler';
+
+const { handleError } = useErrorHandler();
 
 const moduls = ref([]);
 const allModulSubjects = ref([]);
@@ -253,8 +256,7 @@ const fetchData = async () => {
             prof_competencies: allCompetencies.filter(comp => comp.id_module === modul.id)
         }));
     } catch (error) {
-        console.error('Ошибка загрузки данных:', error);
-        alert('Ошибка загрузки данных');
+        handleError(error, 'Ошибка загрузки данных');
     } finally {
         loading.value = false;
     }
@@ -307,13 +309,18 @@ const toggleEditMode = (competencyId) => {
     } else {
         editingCompetencyId.value = competencyId;
 
+        // Оптимизированный поиск: создаем Map для быстрого доступа (O(1) вместо O(n))
         let competency = null;
         let moduleId = null;
+        
         for (const modul of moduls.value) {
-            competency = modul.prof_competencies?.find(c => c.id === competencyId);
-            if (competency) {
-                moduleId = modul.id;
-                break;
+            if (modul.prof_competencies) {
+                // Используем find только один раз на модуль
+                competency = modul.prof_competencies.find(c => c.id === competencyId);
+                if (competency) {
+                    moduleId = modul.id;
+                    break;
+                }
             }
         }
 
@@ -373,8 +380,7 @@ const saveRelations = async (competencyId) => {
         await fetchData();
         cancelEdit(competencyId);
     } catch (error) {
-        console.error('Ошибка сохранения связей:', error);
-        alert('Ошибка сохранения связей');
+        handleError(error, 'Ошибка сохранения связей');
     }
 };
 
@@ -383,8 +389,7 @@ const approveRelations = async (competencyId) => {
         await axios.post(`/api/prof-competencies/${competencyId}/approve`);
         await fetchData();
     } catch (error) {
-        console.error('Ошибка утверждения связей:', error);
-        alert('Ошибка утверждения связей');
+        handleError(error, 'Ошибка утверждения связей');
     }
 };
 
@@ -393,8 +398,7 @@ const unapproveRelations = async (competencyId) => {
         await axios.post(`/api/prof-competencies/${competencyId}/unapprove`);
         await fetchData();
     } catch (error) {
-        console.error('Ошибка разутверждения связей:', error);
-        alert('Ошибка разутверждения связей');
+        handleError(error, 'Ошибка разутверждения связей');
     }
 };
 

@@ -24,48 +24,47 @@
                 </span>
             </div>
 
-            <!-- Поле ввода с автодополнением и кнопкой -->
-            <div class="flex gap-2 mb-1">
-                <div class="relative flex-1">
-                    <input
-                        v-model="searchQueries[type]"
-                        type="text"
-                        :placeholder="`Введите текст для ${type}...`"
-                        class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                        :class="searchQueries[type] ? 'border-blue-300' : 'border-gray-300'"
-                        @input="searchUnits(type)"
-                        @focus="showSuggestions[type] = true"
-                        @blur="handleBlur(type)"
-                    />
-                    
-                    <!-- Подсказки -->
+            <!-- Поле ввода с автодополнением -->
+            <div class="relative">
+                <input
+                    v-model="searchQueries[type]"
+                    type="text"
+                    :placeholder="`Введите текст для ${type}...`"
+                    class="w-full px-4 py-3 border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                    :class="searchQueries[type] ? 'border-blue-300' : 'border-gray-200'"
+                    @input="searchUnits(type)"
+                    @focus="showSuggestions[type] = true"
+                    @blur="handleBlur(type)"
+                />
+                
+                <!-- Подсказки -->
+                <div
+                    v-if="showSuggestions[type] && filteredSuggestions[type].length > 0"
+                    class="absolute z-10 w-full mt-1 bg-white border-2 border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto"
+                >
                     <div
-                        v-if="showSuggestions[type] && filteredSuggestions[type].length > 0"
-                        class="absolute z-50 w-full mt-0.5 bg-white border border-gray-300 rounded-md shadow-md max-h-32 overflow-y-auto"
+                        v-for="suggestion in filteredSuggestions[type]"
+                        :key="suggestion.id"
+                        @mousedown.prevent="useSuggestionText(type, suggestion.name)"
+                        class="px-4 py-2 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0"
                     >
-                        <div
-                            v-for="suggestion in filteredSuggestions[type]"
-                            :key="suggestion.id"
-                            @mousedown.prevent="useSuggestionText(type, suggestion.name)"
-                            class="px-2 py-1.5 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0 text-xs"
-                        >
-                            <div class="text-gray-700">{{ suggestion.name }}</div>
-                        </div>
+                        <div class="text-sm text-gray-700">{{ suggestion.name }}</div>
+                        <div class="text-xs text-gray-400 mt-1">Нажмите, чтобы использовать текст</div>
                     </div>
                 </div>
-
-                <!-- Кнопка добавления -->
-                <button
-                    v-if="searchQueries[type] && searchQueries[type].trim()"
-                    @click="addNewUnit(type)"
-                    class="px-3 py-2 text-sm bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white rounded-md transition-all duration-200 font-medium shadow-sm hover:shadow-md flex items-center justify-center gap-1.5 whitespace-nowrap relative z-10"
-                >
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                    </svg>
-                    Добавить
-                </button>
             </div>
+
+            <!-- Кнопка добавления -->
+            <button
+                v-if="searchQueries[type] && searchQueries[type].trim()"
+                @click="addNewUnit(type)"
+                class="w-full px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white rounded-lg transition-all duration-200 font-semibold shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
+            >
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                </svg>
+                Добавить "{{ searchQueries[type] }}"
+            </button>
         </div>
     </div>
 </template>
@@ -73,6 +72,9 @@
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue';
 import axios from 'axios';
+import { useErrorHandler } from '../../composables/useErrorHandler';
+
+const { handleError } = useErrorHandler();
 
 const props = defineProps({
     modelValue: {
@@ -238,7 +240,7 @@ const addNewUnitFromText = async (type, text) => {
         updateModelValue();
     } catch (error) {
         console.error('Ошибка создания дидактической единицы:', error);
-        alert('Ошибка создания дидактической единицы');
+        handleError(error, 'Ошибка создания дидактической единицы');
         return;
     }
 };

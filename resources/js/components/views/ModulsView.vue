@@ -84,6 +84,11 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import axios from 'axios';
+import { useErrorHandler } from '../../composables/useErrorHandler';
+import { useConfirmDialog } from '../../composables/useConfirmDialog';
+
+const { handleError } = useErrorHandler();
+const { confirm } = useConfirmDialog();
 
 const moduls = ref([]);
 const loading = ref(true);
@@ -97,8 +102,7 @@ const fetchModuls = async () => {
         const response = await axios.get('/api/moduls');
         moduls.value = response.data;
     } catch (error) {
-        console.error('Ошибка загрузки модулей:', error);
-        alert('Ошибка загрузки модулей');
+        handleError(error, 'Ошибка загрузки модулей');
     } finally {
         loading.value = false;
     }
@@ -114,8 +118,7 @@ const saveModul = async () => {
         closeModal();
         fetchModuls();
     } catch (error) {
-        console.error('Ошибка сохранения модуля:', error);
-        alert('Ошибка сохранения модуля');
+        handleError(error, 'Ошибка сохранения модуля');
     }
 };
 
@@ -126,14 +129,18 @@ const editModul = (modul) => {
 };
 
 const deleteModul = async (id) => {
-    if (!confirm('Вы уверены, что хотите удалить этот модуль?')) return;
+    const confirmed = await confirm({
+        title: 'Удаление модуля',
+        message: 'Вы уверены, что хотите удалить этот модуль?'
+    });
+    
+    if (!confirmed) return;
     
     try {
         await axios.delete(`/api/moduls/${id}`);
         fetchModuls();
     } catch (error) {
-        console.error('Ошибка удаления модуля:', error);
-        alert('Ошибка удаления модуля');
+        handleError(error, 'Ошибка удаления модуля');
     }
 };
 

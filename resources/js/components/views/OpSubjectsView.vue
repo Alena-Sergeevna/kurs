@@ -56,8 +56,12 @@
                                 v-model="form.name"
                                 type="text"
                                 required
-                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                :class="[
+                                    'w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2',
+                                    formErrors.name ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-blue-500'
+                                ]"
                             />
+                            <p v-if="formErrors.name" class="mt-1 text-sm text-red-600">{{ formErrors.name }}</p>
                         </div>
                         <div class="mb-4">
                             <label class="block text-sm font-medium text-gray-700 mb-2">Компетенции</label>
@@ -79,7 +83,7 @@
                                 multiple
                                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                             >
-                                <option v-for="unit in didacticUnits" :key="unit.id" :value="unit.id">
+                                <option v-for="unit in filteredDidacticUnits" :key="unit.id" :value="unit.id">
                                     [{{ unit.type }}] {{ unit.name }}
                                 </option>
                             </select>
@@ -109,20 +113,43 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue';
-import axios from 'axios';
+import { computed, onMounted } from 'vue';
+import { useSubjectManagement } from '../../composables/useSubjectManagement';
+import { useReferenceData } from '../../composables/useReferenceData';
 
-const subjects = ref([]);
-const competencies = ref([]);
-const didacticUnits = ref([]);
-const loading = ref(true);
-const showModal = ref(false);
-const editingSubject = ref(null);
-const form = ref({
-    name: '',
-    prof_competency_ids: [],
-    didactic_unit_ids: []
+const {
+    subjects,
+    loading,
+    showModal,
+    editingSubject,
+    form,
+    formErrors,
+    fetchSubjects,
+    saveSubject,
+    editSubject,
+    deleteSubject,
+    closeModal
+} = useSubjectManagement({
+    apiEndpoint: '/api/op-subjects',
+    subjectName: 'ОП',
+    getInitialForm: () => ({
+        name: '',
+        prof_competency_ids: [],
+        didactic_unit_ids: []
+    }),
+    getFormData: (form) => ({
+        name: form.name,
+        prof_competency_ids: Array.from(form.prof_competency_ids).map(id => parseInt(id)),
+        didactic_unit_ids: Array.from(form.didactic_unit_ids).map(id => parseInt(id))
+    }),
+    transformFormForEdit: (subject) => ({
+        name: subject.name,
+        prof_competency_ids: subject.prof_competencies?.map(c => c.id) || [],
+        didactic_unit_ids: subject.didactic_units?.map(u => u.id) || []
+    })
 });
+
+const { competencies, didacticUnits, fetchCompetencies, fetchDidacticUnits } = useReferenceData();
 
 const filteredDidacticUnits = computed(() => {
     return didacticUnits.value.filter(unit => 
@@ -130,94 +157,12 @@ const filteredDidacticUnits = computed(() => {
     );
 });
 
-const fetchSubjects = async () => {
-    try {
-        loading.value = true;
-        const response = await axios.get('/api/op-subjects');
-        subjects.value = response.data;
-    } catch (error) {
-        console.error('Ошибка загрузки ОП:', error);
-        alert('Ошибка загрузки ОП');
-    } finally {
-        loading.value = false;
-    }
-};
-
-const fetchCompetencies = async () => {
-    try {
-        const response = await axios.get('/api/prof-competencies');
-        competencies.value = response.data;
-    } catch (error) {
-        console.error('Ошибка загрузки компетенций:', error);
-    }
-};
-
-const fetchDidacticUnits = async () => {
-    try {
-        const response = await axios.get('/api/didactic-units');
-        didacticUnits.value = response.data;
-    } catch (error) {
-        console.error('Ошибка загрузки дидактических единиц:', error);
-    }
-};
-
-const saveSubject = async () => {
-    try {
-        const data = {
-            name: form.value.name,
-            prof_competency_ids: Array.from(form.value.prof_competency_ids).map(id => parseInt(id)),
-            didactic_unit_ids: Array.from(form.value.didactic_unit_ids).map(id => parseInt(id))
-        };
-
-        if (editingSubject.value) {
-            await axios.put(`/api/op-subjects/${editingSubject.value.id}`, data);
-        } else {
-            await axios.post('/api/op-subjects', data);
-        }
-        closeModal();
-        fetchSubjects();
-    } catch (error) {
-        console.error('Ошибка сохранения ОП:', error);
-        alert('Ошибка сохранения ОП');
-    }
-};
-
-const editSubject = (subject) => {
-    editingSubject.value = subject;
-    form.value = {
-        name: subject.name,
-        prof_competency_ids: subject.prof_competencies?.map(c => c.id) || [],
-        didactic_unit_ids: subject.didactic_units?.map(u => u.id) || []
-    };
-    showModal.value = true;
-};
-
-const deleteSubject = async (id) => {
-    if (!confirm('Вы уверены, что хотите удалить эту ОП?')) return;
-    
-    try {
-        await axios.delete(`/api/op-subjects/${id}`);
-        fetchSubjects();
-    } catch (error) {
-        console.error('Ошибка удаления ОП:', error);
-        alert('Ошибка удаления ОП');
-    }
-};
-
-const closeModal = () => {
-    showModal.value = false;
-    editingSubject.value = null;
-    form.value = {
-        name: '',
-        prof_competency_ids: [],
-        didactic_unit_ids: []
-    };
-};
-
-onMounted(() => {
-    fetchSubjects();
-    fetchCompetencies();
-    fetchDidacticUnits();
+onMounted(async () => {
+    await Promise.all([
+        fetchSubjects(),
+        fetchCompetencies(),
+        fetchDidacticUnits()
+    ]);
 });
 </script>
 

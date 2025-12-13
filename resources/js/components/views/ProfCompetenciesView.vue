@@ -100,9 +100,15 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import axios from 'axios';
+import { useErrorHandler } from '../../composables/useErrorHandler';
+import { useConfirmDialog } from '../../composables/useConfirmDialog';
+import { useReferenceData } from '../../composables/useReferenceData';
+
+const { handleError } = useErrorHandler();
+const { confirm } = useConfirmDialog();
+const { moduls, fetchModuls } = useReferenceData();
 
 const competencies = ref([]);
-const moduls = ref([]);
 const loading = ref(true);
 const showModal = ref(false);
 const editingCompetency = ref(null);
@@ -117,19 +123,9 @@ const fetchCompetencies = async () => {
         const response = await axios.get('/api/prof-competencies');
         competencies.value = response.data;
     } catch (error) {
-        console.error('Ошибка загрузки компетенций:', error);
-        alert('Ошибка загрузки компетенций');
+        handleError(error, 'Ошибка загрузки компетенций');
     } finally {
         loading.value = false;
-    }
-};
-
-const fetchModuls = async () => {
-    try {
-        const response = await axios.get('/api/moduls');
-        moduls.value = response.data;
-    } catch (error) {
-        console.error('Ошибка загрузки модулей:', error);
     }
 };
 
@@ -143,8 +139,7 @@ const saveCompetency = async () => {
         closeModal();
         fetchCompetencies();
     } catch (error) {
-        console.error('Ошибка сохранения компетенции:', error);
-        alert('Ошибка сохранения компетенции');
+        handleError(error, 'Ошибка сохранения компетенции');
     }
 };
 
@@ -158,14 +153,18 @@ const editCompetency = (competency) => {
 };
 
 const deleteCompetency = async (id) => {
-    if (!confirm('Вы уверены, что хотите удалить эту компетенцию?')) return;
+    const confirmed = await confirm({
+        title: 'Удаление компетенции',
+        message: 'Вы уверены, что хотите удалить эту компетенцию?'
+    });
+    
+    if (!confirmed) return;
     
     try {
         await axios.delete(`/api/prof-competencies/${id}`);
         fetchCompetencies();
     } catch (error) {
-        console.error('Ошибка удаления компетенции:', error);
-        alert('Ошибка удаления компетенции');
+        handleError(error, 'Ошибка удаления компетенции');
     }
 };
 
@@ -178,9 +177,11 @@ const closeModal = () => {
     };
 };
 
-onMounted(() => {
-    fetchCompetencies();
-    fetchModuls();
+onMounted(async () => {
+    await Promise.all([
+        fetchCompetencies(),
+        fetchModuls()
+    ]);
 });
 </script>
 

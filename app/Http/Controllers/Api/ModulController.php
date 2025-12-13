@@ -15,9 +15,13 @@ class ModulController extends Controller
     public function index(): JsonResponse
     {
         $moduls = Modul::with([
-            'modulSubjects',
+            'modulSubjects:id,name,id_module',
             'profCompetencies' => function($query) {
-                $query->with(['modulSubjects', 'opSubjects']);
+                $query->select('id', 'name', 'id_module')
+                    ->with([
+                        'modulSubjects:id,name,id_module',
+                        'opSubjects:id,name'
+                    ]);
             }
         ])->get();
         return response()->json($moduls);
@@ -67,5 +71,49 @@ class ModulController extends Controller
         $modul = Modul::findOrFail($id);
         $modul->delete();
         return response()->json(['message' => 'Модуль успешно удален'], 200);
+    }
+
+    /**
+     * Получить все предметы модуля (МДК и ОП) с полными данными
+     */
+    public function getSubjects(string $id): JsonResponse
+    {
+        $modul = Modul::with([
+            'modulSubjects.profCompetencies',
+            'profCompetencies.opSubjects'
+        ])->findOrFail($id);
+
+        // Получаем МДК модуля
+        $modulSubjects = $modul->modulSubjects;
+
+        // Получаем ОП через ПК модуля
+        $opSubjects = collect();
+        foreach ($modul->profCompetencies as $competency) {
+            $opSubjects = $opSubjects->merge($competency->opSubjects);
+        }
+        // Убираем дубликаты
+        $opSubjects = $opSubjects->unique('id')->values();
+
+        return response()->json([
+            'modul_subjects' => $modulSubjects,
+            'op_subjects' => $opSubjects
+        ]);
+    }
+
+    /**
+     * Получить полные данные модуля со всеми связями для отображения
+     */
+    public function getFullData(string $id): JsonResponse
+    {
+        $modul = Modul::with([
+            'modulSubjects' => function($query) {
+                $query->with(['profCompetencies']);
+            },
+            'profCompetencies' => function($query) {
+                $query->with(['opSubjects']);
+            }
+        ])->findOrFail($id);
+
+        return response()->json($modul);
     }
 }

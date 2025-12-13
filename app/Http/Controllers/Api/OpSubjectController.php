@@ -7,11 +7,28 @@ use App\Models\OpSubject;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 
-class OpSubjectController extends Controller
+class OpSubjectController extends BaseSubjectController
 {
+    protected function getSubjectType(): string
+    {
+        return 'op';
+    }
+
+    protected function getModelClass(): string
+    {
+        return OpSubject::class;
+    }
+
+    protected function getSubjectName(): string
+    {
+        return 'ОП';
+    }
     public function index(): JsonResponse
     {
-        $subjects = OpSubject::with(['profCompetencies', 'didacticUnits'])->get();
+        $subjects = OpSubject::with([
+            'profCompetencies:id,name',
+            'didacticUnits:id,type,name'
+        ])->get();
         return response()->json($subjects);
     }
 
@@ -38,26 +55,7 @@ class OpSubjectController extends Controller
         return response()->json($subject->load(['profCompetencies', 'didacticUnits']), 201);
     }
 
-    public function show(string $id): JsonResponse
-    {
-        $subject = OpSubject::with(['profCompetencies', 'didacticUnits'])->findOrFail($id);
-        
-        // Добавляем ДЕ по ПК
-        $profCompetencyId = request()->query('prof_competency_id');
-        if ($profCompetencyId) {
-            $didacticUnits = \Illuminate\Support\Facades\DB::table('subject_didactic_unit_prof_competency')
-                ->where('subject_type', 'op')
-                ->where('subject_id', $id)
-                ->where('prof_competency_id', $profCompetencyId)
-                ->join('didactic_units', 'subject_didactic_unit_prof_competency.didactic_unit_id', '=', 'didactic_units.id')
-                ->select('didactic_units.*')
-                ->get();
-            
-            $subject->didactic_units_by_pk = $didacticUnits;
-        }
-        
-        return response()->json($subject);
-    }
+    // Метод show() наследуется от BaseSubjectController
 
     public function update(Request $request, string $id): JsonResponse
     {
@@ -97,47 +95,5 @@ class OpSubjectController extends Controller
         return response()->json(['message' => 'ОП успешно удалена'], 200);
     }
 
-    /**
-     * Обновить дидактические единицы для ОП по ПК
-     */
-    public function updateDidacticUnits(Request $request, string $id): JsonResponse
-    {
-        $validated = $request->validate([
-            'prof_competency_id' => 'required|exists:prof_competencies,id',
-            'didactic_unit_ids' => 'array',
-            'didactic_unit_ids.*' => 'exists:didactic_units,id',
-        ]);
-
-        $subject = OpSubject::findOrFail($id);
-        $profCompetencyId = $validated['prof_competency_id'];
-        
-        // Удаляем старые связи для этой пары ОП-ПК
-        \Illuminate\Support\Facades\DB::table('subject_didactic_unit_prof_competency')
-            ->where('subject_id', $id)
-            ->where('subject_type', 'op')
-            ->where('prof_competency_id', $profCompetencyId)
-            ->delete();
-        
-        // Добавляем новые связи
-        $insertData = [];
-        foreach (($validated['didactic_unit_ids'] ?? []) as $unitId) {
-            $insertData[] = [
-                'subject_type' => 'op',
-                'subject_id' => $id,
-                'didactic_unit_id' => $unitId,
-                'prof_competency_id' => $profCompetencyId,
-                'created_at' => now(),
-                'updated_at' => now(),
-            ];
-        }
-        
-        if (!empty($insertData)) {
-            \Illuminate\Support\Facades\DB::table('subject_didactic_unit_prof_competency')->insert($insertData);
-        }
-
-        return response()->json([
-            'message' => 'Дидактические единицы обновлены',
-            'subject' => $subject->load(['didacticUnits'])
-        ]);
-    }
+    // Методы updateDidacticUnits() и getCompetencies() наследуются от BaseSubjectController
 }

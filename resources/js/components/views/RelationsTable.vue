@@ -185,6 +185,9 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue';
 import axios from 'axios';
+import { useErrorHandler } from '../../composables/useErrorHandler';
+
+const { handleError } = useErrorHandler();
 
 const loading = ref(true);
 const tableData = ref([]);
@@ -196,6 +199,12 @@ const allCompetencies = ref([]);
 const groupedTableData = computed(() => {
     // Группируем по модулям
     const grouped = {};
+    
+    // Создаем Map для быстрого доступа к индексам модулей (O(1) вместо O(n))
+    const moduleIndexMap = new Map();
+    modules.value.forEach((module, index) => {
+        moduleIndexMap.set(module.id, index);
+    });
     
     tableData.value.forEach(row => {
         if (!grouped[row.moduleId]) {
@@ -214,10 +223,10 @@ const groupedTableData = computed(() => {
         });
     });
     
-    // Преобразуем в массив и сортируем по номеру модуля
+    // Преобразуем в массив и сортируем по номеру модуля (O(n log n) вместо O(n²))
     return Object.values(grouped).sort((a, b) => {
-        const indexA = modules.value.findIndex(m => m.id === a.moduleId);
-        const indexB = modules.value.findIndex(m => m.id === b.moduleId);
+        const indexA = moduleIndexMap.get(a.moduleId) ?? -1;
+        const indexB = moduleIndexMap.get(b.moduleId) ?? -1;
         return indexA - indexB;
     });
 });
@@ -235,14 +244,21 @@ const unusedMdkByModule = computed(() => {
         });
     });
 
+    // Создаем Map для быстрого доступа к модулям (O(1) вместо O(n))
+    const moduleMap = new Map();
+    modules.value.forEach(module => {
+        moduleMap.set(module.id, module);
+    });
+
     const unusedByModule = {};
     
     allModulSubjects.value.forEach(mdk => {
         if (!usedMdkIds.has(mdk.id)) {
             if (!unusedByModule[mdk.id_module]) {
+                const module = moduleMap.get(mdk.id_module);
                 unusedByModule[mdk.id_module] = {
                     moduleId: mdk.id_module,
-                    moduleName: modules.value.find(m => m.id === mdk.id_module)?.name || 'Неизвестный модуль',
+                    moduleName: module?.name || 'Неизвестный модуль',
                     count: 0
                 };
             }
@@ -250,10 +266,16 @@ const unusedMdkByModule = computed(() => {
         }
     });
 
+    // Создаем Map для быстрого доступа к индексам модулей
+    const moduleIndexMap = new Map();
+    modules.value.forEach((module, index) => {
+        moduleIndexMap.set(module.id, index);
+    });
+
     return Object.values(unusedByModule)
         .sort((a, b) => {
-            const indexA = modules.value.findIndex(m => m.id === a.moduleId);
-            const indexB = modules.value.findIndex(m => m.id === b.moduleId);
+            const indexA = moduleIndexMap.get(a.moduleId) ?? -1;
+            const indexB = moduleIndexMap.get(b.moduleId) ?? -1;
             return indexA - indexB;
         });
 });
@@ -278,9 +300,18 @@ const competenciesWithoutSubjects = computed(() => {
     });
 });
 
+// Создаем computed для Map индексов модулей (пересчитывается только при изменении modules)
+const moduleIndexMap = computed(() => {
+    const map = new Map();
+    modules.value.forEach((module, index) => {
+        map.set(module.id, index);
+    });
+    return map;
+});
+
 const getModuleNumber = (moduleId) => {
-    const index = modules.value.findIndex(m => m.id === moduleId);
-    return index !== -1 ? index + 1 : '';
+    const index = moduleIndexMap.value.get(moduleId);
+    return index !== undefined ? index + 1 : '';
 };
 
 const fetchData = async () => {
@@ -300,10 +331,16 @@ const fetchData = async () => {
         allOpSubjects.value = opSubjectsResponse.data;
 
         // Формируем данные для таблицы
+        // Создаем Map для быстрого доступа к модулям (O(1) вместо O(n))
+        const moduleMap = new Map();
+        modules.value.forEach(module => {
+            moduleMap.set(module.id, module);
+        });
+        
         const data = [];
         
         allCompetencies.value.forEach(competency => {
-            const module = modules.value.find(m => m.id === competency.id_module);
+            const module = moduleMap.get(competency.id_module);
             
             if (module) {
                 data.push({
@@ -327,8 +364,7 @@ const fetchData = async () => {
 
         tableData.value = data;
     } catch (error) {
-        console.error('Ошибка загрузки данных:', error);
-        alert('Ошибка загрузки данных');
+        handleError(error, 'Ошибка загрузки данных');
     } finally {
         loading.value = false;
     }

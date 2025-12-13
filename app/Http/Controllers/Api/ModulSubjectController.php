@@ -7,11 +7,39 @@ use App\Models\ModulSubject;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 
-class ModulSubjectController extends Controller
+class ModulSubjectController extends BaseSubjectController
 {
+    protected function getSubjectType(): string
+    {
+        return 'modul';
+    }
+
+    protected function getModelClass(): string
+    {
+        return ModulSubject::class;
+    }
+
+    protected function getSubjectName(): string
+    {
+        return 'МДК';
+    }
+
+    protected function getDefaultRelations(): array
+    {
+        return ['modul', 'profCompetencies', 'didacticUnits'];
+    }
+
+    protected function getLoadRelations(): array
+    {
+        return ['didacticUnits', 'modul'];
+    }
     public function index(): JsonResponse
     {
-        $subjects = ModulSubject::with(['modul', 'profCompetencies', 'didacticUnits'])->get();
+        $subjects = ModulSubject::with([
+            'modul:id,id,name',
+            'profCompetencies:id,name',
+            'didacticUnits:id,type,name'
+        ])->get();
         return response()->json($subjects);
     }
 
@@ -42,26 +70,7 @@ class ModulSubjectController extends Controller
         return response()->json($subject->load(['modul', 'profCompetencies', 'didacticUnits']), 201);
     }
 
-    public function show(string $id): JsonResponse
-    {
-        $subject = ModulSubject::with(['modul', 'profCompetencies', 'didacticUnits'])->findOrFail($id);
-        
-        // Добавляем ДЕ по ПК
-        $profCompetencyId = request()->query('prof_competency_id');
-        if ($profCompetencyId) {
-            $didacticUnits = \Illuminate\Support\Facades\DB::table('subject_didactic_unit_prof_competency')
-                ->where('subject_type', 'modul')
-                ->where('subject_id', $id)
-                ->where('prof_competency_id', $profCompetencyId)
-                ->join('didactic_units', 'subject_didactic_unit_prof_competency.didactic_unit_id', '=', 'didactic_units.id')
-                ->select('didactic_units.*')
-                ->get();
-            
-            $subject->didactic_units_by_pk = $didacticUnits;
-        }
-        
-        return response()->json($subject);
-    }
+    // Метод show() наследуется от BaseSubjectController
 
     public function update(Request $request, string $id): JsonResponse
     {
@@ -102,47 +111,5 @@ class ModulSubjectController extends Controller
         return response()->json(['message' => 'МДК успешно удален'], 200);
     }
 
-    /**
-     * Обновить дидактические единицы для МДК по ПК
-     */
-    public function updateDidacticUnits(Request $request, string $id): JsonResponse
-    {
-        $validated = $request->validate([
-            'prof_competency_id' => 'required|exists:prof_competencies,id',
-            'didactic_unit_ids' => 'array',
-            'didactic_unit_ids.*' => 'exists:didactic_units,id',
-        ]);
-
-        $subject = ModulSubject::findOrFail($id);
-        $profCompetencyId = $validated['prof_competency_id'];
-        
-        // Удаляем старые связи для этой пары МДК-ПК
-        \Illuminate\Support\Facades\DB::table('subject_didactic_unit_prof_competency')
-            ->where('subject_id', $id)
-            ->where('subject_type', 'modul')
-            ->where('prof_competency_id', $profCompetencyId)
-            ->delete();
-        
-        // Добавляем новые связи
-        $insertData = [];
-        foreach (($validated['didactic_unit_ids'] ?? []) as $unitId) {
-            $insertData[] = [
-                'subject_type' => 'modul',
-                'subject_id' => $id,
-                'didactic_unit_id' => $unitId,
-                'prof_competency_id' => $profCompetencyId,
-                'created_at' => now(),
-                'updated_at' => now(),
-            ];
-        }
-        
-        if (!empty($insertData)) {
-            \Illuminate\Support\Facades\DB::table('subject_didactic_unit_prof_competency')->insert($insertData);
-        }
-
-        return response()->json([
-            'message' => 'Дидактические единицы обновлены',
-            'subject' => $subject->load(['didacticUnits', 'modul'])
-        ]);
-    }
+    // Методы updateDidacticUnits() и getCompetencies() наследуются от BaseSubjectController
 }

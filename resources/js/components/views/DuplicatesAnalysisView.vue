@@ -277,6 +277,11 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue';
 import axios from 'axios';
+import { useErrorHandler } from '../../composables/useErrorHandler';
+import { useConfirmDialog } from '../../composables/useConfirmDialog';
+
+const { handleError } = useErrorHandler();
+const { confirm } = useConfirmDialog();
 
 const loading = ref(true);
 const duplicates = ref([]);
@@ -432,7 +437,12 @@ const pluralize = (count, one, few, many) => {
 };
 
 const deleteUnit = async (id) => {
-    if (!confirm('Вы уверены, что хотите удалить эту дидактическую единицу?')) {
+    const confirmed = await confirm({
+        title: 'Удаление дидактической единицы',
+        message: 'Вы уверены, что хотите удалить эту дидактическую единицу?'
+    });
+    
+    if (!confirmed) {
         return;
     }
 
@@ -441,8 +451,7 @@ const deleteUnit = async (id) => {
         await axios.delete(`/api/didactic-units/${id}`);
         await fetchData(); // Перезагружаем данные
     } catch (error) {
-        console.error('Ошибка удаления ДЕ:', error);
-        alert('Ошибка удаления дидактической единицы');
+        handleError(error, 'Ошибка удаления дидактической единицы');
     } finally {
         deletingId.value = null;
     }
@@ -461,8 +470,7 @@ const fetchData = async () => {
         unusedUnits.value = duplicatesResponse.data.unusedUnits || [];
         modules.value = modulesResponse.data;
     } catch (error) {
-        console.error('Ошибка загрузки данных:', error);
-        alert('Ошибка загрузки данных');
+        handleError(error, 'Ошибка загрузки данных');
     } finally {
         loading.value = false;
     }

@@ -4,15 +4,22 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\ProfCompetency;
+use App\Services\SubjectProfCompetencyService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\DB;
 
 class ProfCompetencyController extends Controller
 {
+    public function __construct(
+        protected SubjectProfCompetencyService $subjectProfCompetencyService
+    ) {}
     public function index(Request $request): JsonResponse
     {
-        $query = ProfCompetency::with(['modul', 'modulSubjects', 'opSubjects']);
+        $query = ProfCompetency::with([
+            'modul:id,id,name',
+            'modulSubjects:id,name,id_module',
+            'opSubjects:id,name'
+        ]);
         
         if ($request->has('module_id')) {
             $query->where('id_module', $request->module_id);
@@ -69,34 +76,15 @@ class ProfCompetencyController extends Controller
             'approve' => 'sometimes|boolean',
         ]);
 
-        $competency = ProfCompetency::findOrFail($id);
-        
-        // Удаляем старые связи для этого типа
-        DB::table('subject_prof_competency')
-            ->where('prof_competency_id', $id)
-            ->where('subject_type', 'modul')
-            ->delete();
-        
-        // Добавляем новые связи
-        $insertData = [];
-        foreach (($validated['modul_subject_ids'] ?? []) as $subjectId) {
-            $insertData[] = [
-                'subject_type' => 'modul',
-                'subject_id' => $subjectId,
-                'prof_competency_id' => $id,
-                'approved' => $validated['approve'] ?? false,
-                'created_at' => now(),
-                'updated_at' => now(),
-            ];
-        }
-        
-        if (!empty($insertData)) {
-            DB::table('subject_prof_competency')->insert($insertData);
-        }
+        $competency = $this->subjectProfCompetencyService->syncModulSubjects(
+            (int) $id,
+            $validated['modul_subject_ids'] ?? [],
+            $validated['approve'] ?? false
+        );
 
         return response()->json([
             'message' => 'Связи МДК обновлены',
-            'competency' => $competency->load(['modulSubjects', 'opSubjects'])
+            'competency' => $competency
         ]);
     }
 
@@ -111,34 +99,15 @@ class ProfCompetencyController extends Controller
             'approve' => 'sometimes|boolean',
         ]);
 
-        $competency = ProfCompetency::findOrFail($id);
-        
-        // Удаляем старые связи для этого типа
-        DB::table('subject_prof_competency')
-            ->where('prof_competency_id', $id)
-            ->where('subject_type', 'op')
-            ->delete();
-        
-        // Добавляем новые связи
-        $insertData = [];
-        foreach (($validated['op_subject_ids'] ?? []) as $subjectId) {
-            $insertData[] = [
-                'subject_type' => 'op',
-                'subject_id' => $subjectId,
-                'prof_competency_id' => $id,
-                'approved' => $validated['approve'] ?? false,
-                'created_at' => now(),
-                'updated_at' => now(),
-            ];
-        }
-        
-        if (!empty($insertData)) {
-            DB::table('subject_prof_competency')->insert($insertData);
-        }
+        $competency = $this->subjectProfCompetencyService->syncOpSubjects(
+            (int) $id,
+            $validated['op_subject_ids'] ?? [],
+            $validated['approve'] ?? false
+        );
 
         return response()->json([
             'message' => 'Связи ОП обновлены',
-            'competency' => $competency->load(['modulSubjects', 'opSubjects'])
+            'competency' => $competency
         ]);
     }
 
@@ -147,23 +116,11 @@ class ProfCompetencyController extends Controller
      */
     public function approveRelations(string $id): JsonResponse
     {
-        $competency = ProfCompetency::findOrFail($id);
-        
-        // Утверждаем все связи МДК
-        DB::table('subject_prof_competency')
-            ->where('prof_competency_id', $id)
-            ->where('subject_type', 'modul')
-            ->update(['approved' => true, 'updated_at' => now()]);
-        
-        // Утверждаем все связи ОП
-        DB::table('subject_prof_competency')
-            ->where('prof_competency_id', $id)
-            ->where('subject_type', 'op')
-            ->update(['approved' => true, 'updated_at' => now()]);
+        $competency = $this->subjectProfCompetencyService->approveAllRelations((int) $id);
 
         return response()->json([
             'message' => 'Все связи утверждены',
-            'competency' => $competency->load(['modulSubjects', 'opSubjects'])
+            'competency' => $competency
         ]);
     }
 
@@ -172,23 +129,11 @@ class ProfCompetencyController extends Controller
      */
     public function unapproveRelations(string $id): JsonResponse
     {
-        $competency = ProfCompetency::findOrFail($id);
-        
-        // Разутверждаем все связи МДК
-        DB::table('subject_prof_competency')
-            ->where('prof_competency_id', $id)
-            ->where('subject_type', 'modul')
-            ->update(['approved' => false, 'updated_at' => now()]);
-        
-        // Разутверждаем все связи ОП
-        DB::table('subject_prof_competency')
-            ->where('prof_competency_id', $id)
-            ->where('subject_type', 'op')
-            ->update(['approved' => false, 'updated_at' => now()]);
+        $competency = $this->subjectProfCompetencyService->unapproveAllRelations((int) $id);
 
         return response()->json([
             'message' => 'Все связи разутверждены',
-            'competency' => $competency->load(['modulSubjects', 'opSubjects'])
+            'competency' => $competency
         ]);
     }
 }

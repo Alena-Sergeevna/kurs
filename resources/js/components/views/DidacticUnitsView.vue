@@ -116,29 +116,23 @@
                                 </button>
                             </div>
 
-                            <!-- Текущие дидактические единицы по ПК -->
-                            <div v-if="editingSubjectId !== op.id" class="space-y-4">
-                                <div v-if="getCompetenciesForSubject('op', op.id).length === 0" class="text-sm text-gray-400 italic">
-                                    ОП не привязана к ПК
-                                </div>
-                                <div v-else v-for="competency in getCompetenciesForSubject('op', op.id)" :key="competency.id" class="space-y-3 border-l-4 border-purple-400 pl-4">
-                                    <div class="font-semibold text-gray-800">{{ competency.name }}</div>
-                                    <div v-for="type in ['знать', 'уметь']" :key="type" class="space-y-2">
-                                        <div class="flex items-center gap-2">
-                                            <div class="w-2 h-2 bg-purple-500 rounded-full"></div>
-                                            <span class="text-xs font-bold text-gray-600 uppercase">{{ type }}:</span>
+                            <!-- Текущие дидактические единицы -->
+                            <div v-if="editingSubjectId !== op.id" class="space-y-3">
+                                <div v-for="type in ['знать', 'уметь']" :key="type" class="space-y-2">
+                                    <div class="flex items-center gap-2">
+                                        <div class="w-2 h-2 bg-purple-500 rounded-full"></div>
+                                        <span class="text-sm font-bold text-gray-700 uppercase">{{ type }}:</span>
+                                    </div>
+                                    <div class="pl-4 space-y-1">
+                                        <div
+                                            v-for="unit in getDidacticUnitsByType(op.didactic_units || [], type)"
+                                            :key="unit.id"
+                                            class="text-sm text-gray-700 bg-white px-3 py-2 rounded-lg border border-gray-200 shadow-sm"
+                                        >
+                                            {{ unit.name }}
                                         </div>
-                                        <div class="pl-4 space-y-1">
-                                            <div
-                                                v-for="unit in getDidacticUnitsByTypeAndCompetency(op.id, 'op', competency.id, type)"
-                                                :key="unit.id"
-                                                class="text-xs text-gray-700 bg-white px-2 py-1 rounded border border-gray-200"
-                                            >
-                                                {{ unit.name }}
-                                            </div>
-                                            <div v-if="getDidacticUnitsByTypeAndCompetency(op.id, 'op', competency.id, type).length === 0" class="text-xs text-gray-400 italic">
-                                                Нет ДЕ
-                                            </div>
+                                        <div v-if="getDidacticUnitsByType(op.didactic_units || [], type).length === 0" class="text-xs text-gray-400 italic">
+                                            Нет дидактических единиц
                                         </div>
                                     </div>
                                 </div>
@@ -195,22 +189,16 @@
             <template #footer>
                 <button
                     @click="closeModal"
-                    :disabled="saving"
-                    class="px-6 py-2 bg-white hover:bg-gray-50 text-gray-700 rounded-lg transition-all duration-200 font-semibold shadow-md hover:shadow-lg border border-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                    class="px-6 py-2 bg-white hover:bg-gray-50 text-gray-700 rounded-lg transition-all duration-200 font-semibold shadow-md hover:shadow-lg border border-gray-200"
                 >
                     Отмена
                 </button>
                 <button
                     v-if="selectedCompetencyId"
                     @click="saveDidacticUnits(currentEditingType, currentEditingId)"
-                    :disabled="saving"
-                    class="px-6 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white rounded-lg transition-all duration-200 font-semibold shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                    class="px-6 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white rounded-lg transition-all duration-200 font-semibold shadow-lg hover:shadow-xl"
                 >
-                    <svg v-if="saving" class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    {{ saving ? 'Сохранение...' : 'Сохранить' }}
+                    Сохранить
                 </button>
             </template>
         </Modal>
@@ -222,6 +210,9 @@ import { ref, onMounted } from 'vue';
 import axios from 'axios';
 import Modal from '../ui/Modal.vue';
 import DidacticUnitEditor from '../ui/DidacticUnitEditor.vue';
+import { useErrorHandler } from '../../composables/useErrorHandler';
+
+const { handleError } = useErrorHandler();
 
 const loading = ref(true);
 const modules = ref([]);
@@ -238,7 +229,6 @@ const currentEditingType = ref(null);
 const currentEditingTypes = ref([]);
 const modalTitle = ref('');
 const selectedCompetencyId = ref(null);
-const saving = ref(false);
 
 const getModuleNumber = (moduleId) => {
     const index = modules.value.findIndex(m => m.id === moduleId);
@@ -309,52 +299,82 @@ const getCompetenciesForSubject = (subjectType, subjectId) => {
 const didacticUnitsByCompetency = ref({});
 
 const getDidacticUnitsByTypeAndCompetency = (subjectId, subjectType, competencyId, typeRu) => {
-    const key = `${subjectType}_${subjectId}_${competencyId}`;
+    // Преобразуем 'mdk' в 'modul' для соответствия ключам из API
+    const apiSubjectType = subjectType === 'mdk' ? 'modul' : subjectType;
+    const key = `${apiSubjectType}_${subjectId}_${competencyId}`;
     const units = didacticUnitsByCompetency.value[key] || [];
     const typeEn = typeMapping[typeRu];
     return units.filter(unit => unit.type === typeEn);
 };
 
-// Загрузка ДЕ для отображения
+// Загрузка ДЕ для отображения (оптимизированная версия с одним запросом)
 const loadDidacticUnitsForDisplay = async () => {
-    const promises = [];
-    
-    // Загружаем ДЕ для всех МДК
-    modulSubjects.value.forEach(mdk => {
-        if (mdk.prof_competencies) {
-            mdk.prof_competencies.forEach(comp => {
-                const key = `mdk_${mdk.id}_${comp.id}`;
-                promises.push(
-                    axios.get(`/api/modulsubjects/${mdk.id}?prof_competency_id=${comp.id}`)
-                        .then(response => {
-                            didacticUnitsByCompetency.value[key] = response.data.didactic_units_by_pk || [];
-                        })
-                        .catch(() => {
-                            didacticUnitsByCompetency.value[key] = [];
-                        })
-                );
-            });
-        }
-    });
-    
-    // Загружаем ДЕ для всех ОП
-    opSubjects.value.forEach(op => {
-        const relatedComps = getCompetenciesForSubject('op', op.id);
-        relatedComps.forEach(comp => {
-            const key = `op_${op.id}_${comp.id}`;
-            promises.push(
-                axios.get(`/api/op-subjects/${op.id}?prof_competency_id=${comp.id}`)
-                    .then(response => {
-                        didacticUnitsByCompetency.value[key] = response.data.didactic_units_by_pk || [];
-                    })
-                    .catch(() => {
-                        didacticUnitsByCompetency.value[key] = [];
-                    })
-            );
+    try {
+        // Собираем все комбинации subject_type, subject_id, competency_id
+        const subjectsToLoad = [];
+        
+        // Добавляем МДК
+        modulSubjects.value.forEach(mdk => {
+            if (mdk.prof_competencies) {
+                mdk.prof_competencies.forEach(comp => {
+                    subjectsToLoad.push({
+                        subject_type: 'modul',
+                        subject_id: mdk.id,
+                        competency_id: comp.id
+                    });
+                });
+            }
         });
-    });
-    
-    await Promise.all(promises);
+        
+        // Добавляем ОП
+        opSubjects.value.forEach(op => {
+            const relatedComps = getCompetenciesForSubject('op', op.id);
+            relatedComps.forEach(comp => {
+                subjectsToLoad.push({
+                    subject_type: 'op',
+                    subject_id: op.id,
+                    competency_id: comp.id
+                });
+            });
+        });
+        
+        // Если нет данных для загрузки, выходим
+        if (subjectsToLoad.length === 0) {
+            return;
+        }
+        
+        // Один запрос вместо множественных
+        const response = await axios.post('/api/didactic-units/bulk-load-by-subjects', {
+            subjects: subjectsToLoad
+        });
+        
+        // Заполняем didacticUnitsByCompetency данными из ответа
+        Object.keys(response.data).forEach(key => {
+            didacticUnitsByCompetency.value[key] = response.data[key];
+        });
+    } catch (error) {
+        handleError(error, 'Ошибка загрузки ДЕ');
+        // Инициализируем пустые массивы при ошибке
+        modulSubjects.value.forEach(mdk => {
+            if (mdk.prof_competencies) {
+                mdk.prof_competencies.forEach(comp => {
+                    const key = `modul_${mdk.id}_${comp.id}`;
+                    if (!didacticUnitsByCompetency.value[key]) {
+                        didacticUnitsByCompetency.value[key] = [];
+                    }
+                });
+            }
+        });
+        opSubjects.value.forEach(op => {
+            const relatedComps = getCompetenciesForSubject('op', op.id);
+            relatedComps.forEach(comp => {
+                const key = `op_${op.id}_${comp.id}`;
+                if (!didacticUnitsByCompetency.value[key]) {
+                    didacticUnitsByCompetency.value[key] = [];
+                }
+            });
+        });
+    }
 };
 
 const getDidacticUnitsByType = (units, typeRu) => {
@@ -427,7 +447,7 @@ const loadDidacticUnitsForCompetency = async (subjectId, subjectType, competency
             };
         }
     } catch (error) {
-        console.error('Ошибка загрузки ДЕ:', error);
+        handleError(error, 'Ошибка загрузки ДЕ');
         // Инициализируем пустую форму при ошибке
         if (editForms.value[subjectId]) {
             editForms.value[subjectId] = {
@@ -457,12 +477,11 @@ const cancelEdit = (subjectId) => {
 
 const saveDidacticUnits = async (type, subjectId) => {
     if (!selectedCompetencyId.value) {
-        alert('Выберите профессиональную компетенцию');
+        handleError(new Error('Не выбрана профессиональная компетенция'), 'Выберите профессиональную компетенцию');
         return;
     }
 
     try {
-        saving.value = true;
         const form = editForms.value[subjectId];
         
         // Собираем все выбранные дидактические единицы
@@ -484,10 +503,7 @@ const saveDidacticUnits = async (type, subjectId) => {
         await fetchData();
         closeModal();
     } catch (error) {
-        console.error('Ошибка сохранения дидактических единиц:', error);
-        alert('Ошибка сохранения дидактических единиц');
-    } finally {
-        saving.value = false;
+        handleError(error, 'Ошибка сохранения дидактических единиц');
     }
 };
 
@@ -495,12 +511,13 @@ const fetchData = async () => {
     try {
         loading.value = true;
 
+        // Используем оптимизированные запросы с eager loading
         const [modulsResponse, modulSubjectsResponse, opSubjectsResponse, didacticUnitsResponse, competenciesResponse] = await Promise.all([
-            axios.get('/api/moduls'),
-            axios.get('/api/modulsubjects'),
-            axios.get('/api/op-subjects'),
+            axios.get('/api/moduls'), // Уже включает modulSubjects и profCompetencies с eager loading
+            axios.get('/api/modulsubjects'), // Нужен для детальной информации
+            axios.get('/api/op-subjects'), // Нужен для детальной информации
             axios.get('/api/didactic-units'),
-            axios.get('/api/prof-competencies')
+            axios.get('/api/prof-competencies') // Уже включает modulSubjects и opSubjects с eager loading
         ]);
 
         modules.value = modulsResponse.data;
@@ -509,11 +526,10 @@ const fetchData = async () => {
         didacticUnits.value = didacticUnitsResponse.data;
         competencies.value = competenciesResponse.data;
         
-        // Загружаем ДЕ по ПК для отображения
+        // Загружаем ДЕ по ПК для отображения (оптимизированная версия с одним запросом)
         await loadDidacticUnitsForDisplay();
     } catch (error) {
-        console.error('Ошибка загрузки данных:', error);
-        alert('Ошибка загрузки данных');
+        handleError(error, 'Ошибка загрузки данных');
     } finally {
         loading.value = false;
     }

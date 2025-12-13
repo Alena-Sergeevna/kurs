@@ -29,4 +29,16 @@ class OpSubject extends Model
             ->withPivot('subject_type')
             ->withTimestamps();
     }
+
+    /**
+     * Получить дидактические единицы для конкретной профессиональной компетенции
+     */
+    public function didacticUnitsByCompetency(int $competencyId)
+    {
+        return $this->belongsToMany(DidacticUnit::class, 'subject_didactic_unit_prof_competency', 'subject_id', 'didactic_unit_id')
+            ->wherePivot('subject_type', 'op')
+            ->wherePivot('prof_competency_id', $competencyId)
+            ->withPivot('subject_type', 'prof_competency_id')
+            ->withTimestamps();
+    }
 }

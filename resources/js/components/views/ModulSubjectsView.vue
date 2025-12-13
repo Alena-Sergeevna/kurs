@@ -59,21 +59,29 @@
                                 v-model="form.name"
                                 type="text"
                                 required
-                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                :class="[
+                                    'w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2',
+                                    formErrors.name ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-blue-500'
+                                ]"
                             />
+                            <p v-if="formErrors.name" class="mt-1 text-sm text-red-600">{{ formErrors.name }}</p>
                         </div>
                         <div class="mb-4">
                             <label class="block text-sm font-medium text-gray-700 mb-2">Модуль</label>
                             <select
                                 v-model="form.id_module"
                                 required
-                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                :class="[
+                                    'w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2',
+                                    formErrors.id_module ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-blue-500'
+                                ]"
                             >
                                 <option value="">Выберите модуль</option>
                                 <option v-for="modul in moduls" :key="modul.id" :value="modul.id">
                                     {{ modul.name }}
                                 </option>
                             </select>
+                            <p v-if="formErrors.id_module" class="mt-1 text-sm text-red-600">{{ formErrors.id_module }}</p>
                         </div>
                         <div class="mb-4">
                             <label class="block text-sm font-medium text-gray-700 mb-2">Компетенции</label>
@@ -124,124 +132,54 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
-import axios from 'axios';
+import { onMounted } from 'vue';
+import { useSubjectManagement } from '../../composables/useSubjectManagement';
+import { useReferenceData } from '../../composables/useReferenceData';
 
-const subjects = ref([]);
-const moduls = ref([]);
-const competencies = ref([]);
-const didacticUnits = ref([]);
-const loading = ref(true);
-const showModal = ref(false);
-const editingSubject = ref(null);
-const form = ref({
-    name: '',
-    id_module: '',
-    prof_competency_ids: [],
-    didactic_unit_ids: []
-});
-
-const fetchSubjects = async () => {
-    try {
-        loading.value = true;
-        const response = await axios.get('/api/modulsubjects');
-        subjects.value = response.data;
-    } catch (error) {
-        console.error('Ошибка загрузки МДК:', error);
-        alert('Ошибка загрузки МДК');
-    } finally {
-        loading.value = false;
-    }
-};
-
-const fetchModuls = async () => {
-    try {
-        const response = await axios.get('/api/moduls');
-        moduls.value = response.data;
-    } catch (error) {
-        console.error('Ошибка загрузки модулей:', error);
-    }
-};
-
-const fetchCompetencies = async () => {
-    try {
-        const response = await axios.get('/api/prof-competencies');
-        competencies.value = response.data;
-    } catch (error) {
-        console.error('Ошибка загрузки компетенций:', error);
-    }
-};
-
-const fetchDidacticUnits = async () => {
-    try {
-        const response = await axios.get('/api/didactic-units');
-        didacticUnits.value = response.data;
-    } catch (error) {
-        console.error('Ошибка загрузки дидактических единиц:', error);
-    }
-};
-
-const saveSubject = async () => {
-    try {
-        const data = {
-            name: form.value.name,
-            id_module: form.value.id_module,
-            prof_competency_ids: Array.from(form.value.prof_competency_ids).map(id => parseInt(id)),
-            didactic_unit_ids: Array.from(form.value.didactic_unit_ids).map(id => parseInt(id))
-        };
-
-        if (editingSubject.value) {
-            await axios.put(`/api/modulsubjects/${editingSubject.value.id}`, data);
-        } else {
-            await axios.post('/api/modulsubjects', data);
-        }
-        closeModal();
-        fetchSubjects();
-    } catch (error) {
-        console.error('Ошибка сохранения МДК:', error);
-        alert('Ошибка сохранения МДК');
-    }
-};
-
-const editSubject = (subject) => {
-    editingSubject.value = subject;
-    form.value = {
-        name: subject.name,
-        id_module: subject.id_module,
-        prof_competency_ids: subject.prof_competencies?.map(c => c.id) || [],
-        didactic_unit_ids: subject.didactic_units?.map(u => u.id) || []
-    };
-    showModal.value = true;
-};
-
-const deleteSubject = async (id) => {
-    if (!confirm('Вы уверены, что хотите удалить этот МДК?')) return;
-    
-    try {
-        await axios.delete(`/api/modulsubjects/${id}`);
-        fetchSubjects();
-    } catch (error) {
-        console.error('Ошибка удаления МДК:', error);
-        alert('Ошибка удаления МДК');
-    }
-};
-
-const closeModal = () => {
-    showModal.value = false;
-    editingSubject.value = null;
-    form.value = {
+const {
+    subjects,
+    loading,
+    showModal,
+    editingSubject,
+    form,
+    formErrors,
+    fetchSubjects,
+    saveSubject,
+    editSubject,
+    deleteSubject,
+    closeModal
+} = useSubjectManagement({
+    apiEndpoint: '/api/modulsubjects',
+    subjectName: 'МДК',
+    getInitialForm: () => ({
         name: '',
         id_module: '',
         prof_competency_ids: [],
         didactic_unit_ids: []
-    };
-};
+    }),
+    getFormData: (form) => ({
+        name: form.name,
+        id_module: form.id_module,
+        prof_competency_ids: Array.from(form.prof_competency_ids).map(id => parseInt(id)),
+        didactic_unit_ids: Array.from(form.didactic_unit_ids).map(id => parseInt(id))
+    }),
+    transformFormForEdit: (subject) => ({
+        name: subject.name,
+        id_module: subject.id_module,
+        prof_competency_ids: subject.prof_competencies?.map(c => c.id) || [],
+        didactic_unit_ids: subject.didactic_units?.map(u => u.id) || []
+    })
+});
 
-onMounted(() => {
-    fetchSubjects();
-    fetchModuls();
-    fetchCompetencies();
-    fetchDidacticUnits();
+const { moduls, competencies, didacticUnits, fetchModuls, fetchCompetencies, fetchDidacticUnits } = useReferenceData();
+
+onMounted(async () => {
+    await Promise.all([
+        fetchSubjects(),
+        fetchModuls(),
+        fetchCompetencies(),
+        fetchDidacticUnits()
+    ]);
 });
 </script>
 

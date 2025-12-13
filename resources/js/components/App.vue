@@ -57,7 +57,7 @@
                             @click="setCurrentView('duplicates')"
                             class="px-4 py-2 rounded-lg font-medium transition-all duration-200"
                             :class="currentView === 'duplicates' 
-                                ? 'bg-gradient-to-r from-orange-500 to-red-600 text-white shadow-lg' 
+                                ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg' 
                                 : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-200'"
                         >
                             Анализ дубликатов
@@ -76,6 +76,10 @@
                 <DuplicatesAnalysisView v-if="currentView === 'duplicates'" />
             </div>
         </main>
+
+        <!-- Глобальные компоненты для уведомлений и подтверждений -->
+        <ErrorNotification />
+        <ConfirmDialog />
     </div>
 </template>
 
@@ -86,6 +90,8 @@ import RelationsTable from './views/RelationsTable.vue';
 import DidacticUnitsView from './views/DidacticUnitsView.vue';
 import DidacticUnitsTable from './views/DidacticUnitsTable.vue';
 import DuplicatesAnalysisView from './views/DuplicatesAnalysisView.vue';
+import ErrorNotification from './ui/ErrorNotification.vue';
+import ConfirmDialog from './ui/ConfirmDialog.vue';
 
 const currentView = ref('relations');
 

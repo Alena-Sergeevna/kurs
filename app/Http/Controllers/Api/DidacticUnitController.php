@@ -4,11 +4,17 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\DidacticUnit;
+use App\Models\SubjectDidacticUnitProfCompetency;
+use App\Services\SubjectDidacticUnitService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\DB;
 
 class DidacticUnitController extends Controller
 {
+    public function __construct(
+        protected SubjectDidacticUnitService $subjectDidacticUnitService
+    ) {}
     public function index(): JsonResponse
     {
         $units = DidacticUnit::with(['modulSubjects', 'opSubjects'])->get();
@@ -53,10 +59,11 @@ class DidacticUnitController extends Controller
 
     /**
      * Получить данные для таблицы связей ДЕ
+     * Использует Eloquent модель вместо DB::table
      */
     public function table(): JsonResponse
     {
-        $data = \Illuminate\Support\Facades\DB::table('subject_didactic_unit_prof_competency')
+        $data = SubjectDidacticUnitProfCompetency::query()
             ->join('prof_competencies', 'prof_competencies.id', '=', 'subject_didactic_unit_prof_competency.prof_competency_id')
             ->join('moduls', 'moduls.id', '=', 'prof_competencies.id_module')
             ->join('didactic_units', 'didactic_units.id', '=', 'subject_didactic_unit_prof_competency.didactic_unit_id')
@@ -68,18 +75,19 @@ class DidacticUnitController extends Controller
                 $join->on('op_subjects.id', '=', 'subject_didactic_unit_prof_competency.subject_id')
                     ->where('subject_didactic_unit_prof_competency.subject_type', '=', 'op');
             })
-            ->select(
+            ->select([
                 'moduls.id as moduleId',
                 'moduls.name as moduleName',
                 'prof_competencies.id as competencyId',
                 'prof_competencies.name as competencyName',
                 'subject_didactic_unit_prof_competency.subject_type as subjectType',
                 'subject_didactic_unit_prof_competency.subject_id as subjectId',
-                \DB::raw('COALESCE(modulsubjects.name, op_subjects.name) as subjectName'),
+                // Используем selectRaw для COALESCE
+                DB::raw('COALESCE(modulsubjects.name, op_subjects.name) as subjectName'),
                 'didactic_units.id as unitId',
                 'didactic_units.name as unitName',
                 'didactic_units.type as unitType'
-            )
+            ])
             ->orderBy('moduls.id')
             ->orderBy('prof_competencies.id')
             ->orderBy('subject_didactic_unit_prof_competency.subject_type')
@@ -90,123 +98,81 @@ class DidacticUnitController extends Controller
     }
 
     /**
-     * Анализ дублирования ДЕ
+     * Массовая загрузка дидактических единиц для списка предметов и компетенций
+     * Принимает массив объектов: [{subject_type: 'modul'|'op', subject_id: int, competency_id: int}]
+     * Возвращает объект с ключами вида "subject_type_subject_id_competency_id"
+     */
+    public function bulkLoadBySubjects(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'subjects' => 'required|array',
+            'subjects.*.subject_type' => 'required|in:modul,op',
+            'subjects.*.subject_id' => 'required|integer',
+            'subjects.*.competency_id' => 'required|integer|exists:prof_competencies,id',
+        ]);
+
+        $result = $this->subjectDidacticUnitService->bulkLoadBySubjects($validated['subjects']);
+
+        // Заполняем пустые результаты для запросов без данных
+        foreach ($validated['subjects'] as $subject) {
+            $key = "{$subject['subject_type']}_{$subject['subject_id']}_{$subject['competency_id']}";
+            if (!isset($result[$key])) {
+                $result[$key] = [];
+            }
+        }
+
+        return response()->json($result);
+    }
+
+    /**
+     * Анализ дубликатов дидактических единиц
+     * Находит ДЕ с одинаковым текстом и неиспользуемые ДЕ
      */
     public function duplicates(): JsonResponse
     {
         // Получаем все ДЕ с их связями
-        $units = DidacticUnit::all();
+        $allUnits = DidacticUnit::all();
         
-        // Группируем по типу и точному тексту (без нормализации)
-        $textMap = [];
-        foreach ($units as $unit) {
-            $key = $unit->type . '_' . trim($unit->name);
-            
-            if (!isset($textMap[$key])) {
-                $textMap[$key] = [
-                    'text' => $unit->name,
-                    'type' => $unit->type,
-                    'ids' => []
-                ];
+        // Группируем по тексту для поиска дубликатов
+        $groupedByText = [];
+        foreach ($allUnits as $unit) {
+            $text = trim($unit->name);
+            if (!isset($groupedByText[$text])) {
+                $groupedByText[$text] = collect([]);
             }
-            
-            // Добавляем ID только если его еще нет
-            if (!in_array($unit->id, $textMap[$key]['ids'])) {
-                $textMap[$key]['ids'][] = $unit->id;
-            }
+            $groupedByText[$text]->push($unit);
         }
         
-        // Фильтруем только дубликаты (где больше одного ID)
+        // Находим дубликаты (тексты с более чем одной ДЕ)
         $duplicates = [];
-        foreach ($textMap as $key => $data) {
-            if (count($data['ids']) > 1) {
-                // Получаем места использования для всех ID этого дубликата
-                $locationsMap = [];
-                
-                foreach ($data['ids'] as $unitId) {
-                    $rows = \DB::table('subject_didactic_unit_prof_competency')
-                        ->join('prof_competencies', 'prof_competencies.id', '=', 'subject_didactic_unit_prof_competency.prof_competency_id')
-                        ->join('moduls', 'moduls.id', '=', 'prof_competencies.id_module')
-                        ->leftJoin('modulsubjects', function($join) {
-                            $join->on('modulsubjects.id', '=', 'subject_didactic_unit_prof_competency.subject_id')
-                                ->where('subject_didactic_unit_prof_competency.subject_type', '=', 'modul');
-                        })
-                        ->leftJoin('op_subjects', function($join) {
-                            $join->on('op_subjects.id', '=', 'subject_didactic_unit_prof_competency.subject_id')
-                                ->where('subject_didactic_unit_prof_competency.subject_type', '=', 'op');
-                        })
-                        ->where('subject_didactic_unit_prof_competency.didactic_unit_id', $unitId)
-                        ->select(
-                            'moduls.id as moduleId',
-                            'moduls.name as moduleName',
-                            'prof_competencies.id as competencyId',
-                            'prof_competencies.name as competencyName',
-                            'subject_didactic_unit_prof_competency.subject_type as subjectType',
-                            'subject_didactic_unit_prof_competency.subject_id as subjectId',
-                            \DB::raw('COALESCE(modulsubjects.name, op_subjects.name) as subjectName')
-                        )
-                        ->get();
-                    
-                    foreach ($rows as $row) {
-                        // Ключ: модуль + тип предмета + ID предмета (объединяем разные ПК для одного предмета)
-                        $locationKey = $row->moduleId . '_' . $row->subjectType . '_' . $row->subjectId;
-                        
-                        if (!isset($locationsMap[$locationKey])) {
-                            $locationsMap[$locationKey] = [
-                                'moduleId' => $row->moduleId,
-                                'moduleName' => $row->moduleName,
-                                'subjectType' => $row->subjectType,
-                                'subjectId' => $row->subjectId,
-                                'subjectName' => $row->subjectName,
-                                'competencies' => []
-                            ];
-                        }
-                        
-                        // Добавляем ПК, если его еще нет
-                        $compExists = false;
-                        foreach ($locationsMap[$locationKey]['competencies'] as $comp) {
-                            if ($comp['id'] == $row->competencyId) {
-                                $compExists = true;
-                                break;
-                            }
-                        }
-                        
-                        if (!$compExists) {
-                            $locationsMap[$locationKey]['competencies'][] = [
-                                'id' => $row->competencyId,
-                                'name' => $row->competencyName
-                            ];
-                        }
+        foreach ($groupedByText as $text => $units) {
+            if ($units->count() > 1) {
+                // Получаем места использования для каждой ДЕ
+                $locations = [];
+                foreach ($units as $unit) {
+                    $unitLocations = $this->getUnitLocations($unit->id);
+                    if (!empty($unitLocations)) {
+                        $locations = array_merge($locations, $unitLocations);
                     }
                 }
                 
+                // Группируем места по модулю, предмету и компетенции
+                $groupedLocations = $this->groupLocations($locations);
+                
                 $duplicates[] = [
-                    'text' => $data['text'],
-                    'type' => $data['type'],
-                    'ids' => $data['ids'],
-                    'duplicatesCount' => count($data['ids']), // Считаем все ДЕ с одинаковым текстом
-                    'locations' => array_values($locationsMap)
+                    'text' => $text,
+                    'type' => $units->first()->type,
+                    'duplicatesCount' => $units->count(),
+                    'unitIds' => $units->pluck('id')->toArray(),
+                    'locations' => $groupedLocations
                 ];
             }
         }
         
-        // Сортируем по количеству дубликатов
-        usort($duplicates, function($a, $b) {
-            if ($b['duplicatesCount'] !== $a['duplicatesCount']) {
-                return $b['duplicatesCount'] - $a['duplicatesCount'];
-            }
-            return count($b['locations']) - count($a['locations']);
-        });
-        
-        // Находим неиспользуемые ДЕ (нет связей в subject_didactic_unit_prof_competency)
-        $usedUnitIds = \DB::table('subject_didactic_unit_prof_competency')
-            ->distinct()
-            ->pluck('didactic_unit_id')
-            ->toArray();
-        
+        // Находим неиспользуемые ДЕ (не связанные ни с одним предметом и компетенцией)
+        $usedUnitIds = SubjectDidacticUnitProfCompetency::pluck('didactic_unit_id')->unique()->toArray();
         $unusedUnits = DidacticUnit::whereNotIn('id', $usedUnitIds)
-            ->orderBy('type')
-            ->orderBy('name')
+            ->select('id', 'name', 'type')
             ->get()
             ->map(function($unit) {
                 return [
@@ -214,24 +180,91 @@ class DidacticUnitController extends Controller
                     'name' => $unit->name,
                     'type' => $unit->type
                 ];
-            })
-            ->toArray();
+            });
         
         // Статистика
-        $totalUnits = $units->count();
-        $uniqueTexts = count($textMap);
-        // Считаем все ДЕ, которые являются дубликатами (все ДЕ с одинаковым текстом)
-        $totalDuplicates = array_sum(array_column($duplicates, 'duplicatesCount'));
+        $statistics = [
+            'totalUnits' => $allUnits->count(),
+            'uniqueTexts' => count($groupedByText),
+            'duplicatesCount' => count($duplicates),
+            'unusedCount' => $unusedUnits->count()
+        ];
         
         return response()->json([
-            'statistics' => [
-                'totalUnits' => $totalUnits,
-                'uniqueTexts' => $uniqueTexts,
-                'duplicatesCount' => $totalDuplicates,
-                'unusedCount' => count($unusedUnits)
-            ],
+            'statistics' => $statistics,
             'duplicates' => $duplicates,
             'unusedUnits' => $unusedUnits
         ]);
+    }
+    
+    /**
+     * Получить места использования ДЕ
+     */
+    private function getUnitLocations(int $unitId): array
+    {
+        $relations = SubjectDidacticUnitProfCompetency::where('didactic_unit_id', $unitId)
+            ->with(['profCompetency.modul', 'subject'])
+            ->get();
+        
+        $locations = [];
+        foreach ($relations as $relation) {
+            $module = $relation->profCompetency->modul;
+            $subject = $relation->subject;
+            
+            if ($module && $subject) {
+                $locations[] = [
+                    'moduleId' => $module->id,
+                    'moduleName' => $module->name,
+                    'subjectType' => $relation->subject_type,
+                    'subjectId' => $relation->subject_id,
+                    'subjectName' => $subject->name ?? '',
+                    'competencyId' => $relation->prof_competency_id,
+                    'competencyName' => $relation->profCompetency->name ?? ''
+                ];
+            }
+        }
+        
+        return $locations;
+    }
+    
+    /**
+     * Группировать места использования по модулю, предмету и компетенции
+     */
+    private function groupLocations(array $locations): array
+    {
+        $grouped = [];
+        
+        foreach ($locations as $location) {
+            $key = "{$location['moduleId']}_{$location['subjectType']}_{$location['subjectId']}_{$location['competencyId']}";
+            
+            if (!isset($grouped[$key])) {
+                $grouped[$key] = [
+                    'moduleId' => $location['moduleId'],
+                    'moduleName' => $location['moduleName'],
+                    'subjectType' => $location['subjectType'],
+                    'subjectId' => $location['subjectId'],
+                    'subjectName' => $location['subjectName'],
+                    'competencies' => []
+                ];
+            }
+            
+            // Добавляем компетенцию, если её еще нет
+            $compExists = false;
+            foreach ($grouped[$key]['competencies'] as $comp) {
+                if ($comp['id'] === $location['competencyId']) {
+                    $compExists = true;
+                    break;
+                }
+            }
+            
+            if (!$compExists) {
+                $grouped[$key]['competencies'][] = [
+                    'id' => $location['competencyId'],
+                    'name' => $location['competencyName']
+                ];
+            }
+        }
+        
+        return array_values($grouped);
     }
 }
