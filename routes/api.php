@@ -42,10 +42,18 @@ Route::post('didactic-units/unapprove', [DidacticUnitController::class, 'unappro
 use App\Http\Controllers\Api\DraftController;
 Route::get('drafts', [DraftController::class, 'index']);
 Route::get('drafts/find', [DraftController::class, 'findSubjectCompetencyDraft']);
+Route::get('drafts/didactic-units-for-relation', [DraftController::class, 'getDidacticUnitDraftsForRelation']);
 Route::post('drafts/subject-competency', [DraftController::class, 'createSubjectCompetencyDraft']);
 Route::post('drafts/didactic-unit', [DraftController::class, 'createDidacticUnitDraft']);
 Route::get('drafts/{draftBatchId}', [DraftController::class, 'show']);
 Route::get('drafts/{draftBatchId}/preview', [DraftController::class, 'preview']);
 Route::post('drafts/{draftBatchId}/apply', [DraftController::class, 'apply']);
 Route::delete('drafts/{draftBatchId}', [DraftController::class, 'destroy']);
+
+// Версии
+use App\Http\Controllers\Api\VersionController;
+Route::get('versions', [VersionController::class, 'index']);
+Route::get('versions/{id}', [VersionController::class, 'show']);
+Route::post('versions/compare', [VersionController::class, 'compare']);
+Route::post('versions/{id}/revert', [VersionController::class, 'revert']);
 

@@ -97,6 +97,13 @@ class DidacticUnitController extends Controller
     public function destroy(string $id): JsonResponse
     {
         $unit = DidacticUnit::findOrFail($id);
+        
+        // Удаляем все связанные черновики оценок для этой ДЕ
+        \App\Models\DidacticUnitDraft::where('original_didactic_unit_id', $id)
+            ->orWhere('new_didactic_unit_id', $id)
+            ->orWhereJsonContains('original_didactic_unit_ids', $id)
+            ->delete();
+        
         $unit->delete();
         return response()->json(['message' => 'Дидактическая единица успешно удалена'], 200);
     }
@@ -108,6 +115,7 @@ class DidacticUnitController extends Controller
     public function table(): JsonResponse
     {
         $data = SubjectDidacticUnitProfCompetency::query()
+            ->whereNull('approved_version_id') // Только исходные данные, не версионированные
             ->join('prof_competencies', 'prof_competencies.id', '=', 'subject_didactic_unit_prof_competency.prof_competency_id')
             ->join('moduls', 'moduls.id', '=', 'prof_competencies.id_module')
             ->join('didactic_units', 'didactic_units.id', '=', 'subject_didactic_unit_prof_competency.didactic_unit_id')
@@ -214,7 +222,9 @@ class DidacticUnitController extends Controller
         }
         
         // Находим неиспользуемые ДЕ (не связанные ни с одним предметом и компетенцией)
-        $usedUnitIds = SubjectDidacticUnitProfCompetency::pluck('didactic_unit_id')->unique()->toArray();
+        // Учитываем только исходные данные, не версионированные
+        $usedUnitIds = SubjectDidacticUnitProfCompetency::whereNull('approved_version_id')
+            ->pluck('didactic_unit_id')->unique()->toArray();
         $unusedUnits = DidacticUnit::whereNotIn('id', $usedUnitIds)
             ->select('id', 'name', 'type')
             ->get()
@@ -247,6 +257,7 @@ class DidacticUnitController extends Controller
     private function getUnitLocations(int $unitId): array
     {
         $relations = SubjectDidacticUnitProfCompetency::where('didactic_unit_id', $unitId)
+            ->whereNull('approved_version_id') // Только исходные данные, не версионированные
             ->with(['profCompetency.modul', 'subject'])
             ->get();
         

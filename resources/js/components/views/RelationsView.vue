@@ -152,7 +152,7 @@
                                             </span>
                                         </span>
                                         <button
-                                            v-if="subject.pivot?.approved"
+                                            v-if="subject.pivot?.approved && areDidacticUnitsApproved('modul', subject.id, competency.id)"
                                             @click="openDraftEditor('modul', subject.id, subject.name, competency.id, competency.name, modul.id)"
                                             class="px-3 py-1.5 rounded-lg transition-all duration-200 text-xs font-medium shadow-md hover:shadow-lg flex items-center gap-1"
                                             :class="hasDraftForRelation('modul', subject.id, competency.id)
@@ -169,8 +169,11 @@
                                             {{ hasDraftForRelation('modul', subject.id, competency.id) ? 'Редактировать оценку' : 'Оценить' }}
                                             <span v-if="hasDraftForRelation('modul', subject.id, competency.id)" class="ml-1 text-xs">●</span>
                                         </button>
-                                        <div v-else class="px-3 py-1.5 text-xs text-gray-400 italic">
+                                        <div v-else-if="!subject.pivot?.approved" class="px-3 py-1.5 text-xs text-gray-400 italic">
                                             Сначала утвердите связь
+                                        </div>
+                                        <div v-else class="px-3 py-1.5 text-xs text-gray-400 italic">
+                                            Сначала утвердите ДЕ
                                         </div>
                                     </div>
                                 </div>
@@ -204,7 +207,7 @@
                                             </span>
                                         </span>
                                         <button
-                                            v-if="subject.pivot?.approved"
+                                            v-if="subject.pivot?.approved && areDidacticUnitsApproved('op', subject.id, competency.id)"
                                             @click="openDraftEditor('op', subject.id, subject.name, competency.id, competency.name, modul.id)"
                                             class="px-3 py-1.5 rounded-lg transition-all duration-200 text-xs font-medium shadow-md hover:shadow-lg flex items-center gap-1"
                                             :class="hasDraftForRelation('op', subject.id, competency.id)
@@ -221,8 +224,11 @@
                                             {{ hasDraftForRelation('op', subject.id, competency.id) ? 'Редактировать оценку' : 'Оценить' }}
                                             <span v-if="hasDraftForRelation('op', subject.id, competency.id)" class="ml-1 text-xs">●</span>
                                         </button>
-                                        <div v-else class="px-3 py-1.5 text-xs text-gray-400 italic">
+                                        <div v-else-if="!subject.pivot?.approved" class="px-3 py-1.5 text-xs text-gray-400 italic">
                                             Сначала утвердите связь
+                                        </div>
+                                        <div v-else class="px-3 py-1.5 text-xs text-gray-400 italic">
+                                            Сначала утвердите ДЕ
                                         </div>
                                     </div>
                                 </div>
@@ -291,28 +297,8 @@
             :draft-batch-id="draftEditorData.draftBatchId"
             @close="closeDraftEditor"
             @saved="onDraftSaved"
-            @openDidacticUnitDraftEditor="handleOpenDidacticUnitDraftEditor"
         />
         
-        <!-- Редактор черновиков ДЕ -->
-        <DidacticUnitDraftEditor
-            :show="showDidacticUnitDraftEditor"
-            :subject-type="didacticUnitDraftEditorData.subjectType"
-            :subject-id="didacticUnitDraftEditorData.subjectId"
-            :subject-name="didacticUnitDraftEditorData.subjectName"
-            :competency-id="didacticUnitDraftEditorData.competencyId"
-            :competency-name="didacticUnitDraftEditorData.competencyName"
-            :current-units="didacticUnitDraftEditorData.currentUnits"
-            :all-didactic-units="didacticUnitDraftEditorData.allDidacticUnits"
-            :existing-draft="didacticUnitDraftEditorData.existingDraft"
-            :draft-batch-id="didacticUnitDraftEditorData.draftBatchId"
-            :is-move="didacticUnitDraftEditorData.isMove"
-            :original-competency-id="didacticUnitDraftEditorData.originalCompetencyId"
-            :original-subject-type="didacticUnitDraftEditorData.originalSubjectType"
-            :original-subject-id="didacticUnitDraftEditorData.originalSubjectId"
-            @close="closeDidacticUnitDraftEditor"
-            @saved="onDidacticUnitDraftSaved"
-        />
     </div>
 </template>
 
@@ -321,12 +307,11 @@ import { ref, computed, onMounted } from 'vue';
 import axios from 'axios';
 import MultiSelect from '../ui/MultiSelect.vue';
 import DraftEditor from '../ui/DraftEditor.vue';
-import DidacticUnitDraftEditor from '../ui/DidacticUnitDraftEditor.vue';
 import { useErrorHandler } from '../../composables/useErrorHandler';
 import { useDrafts } from '../../composables/useDrafts';
 
 const { handleError } = useErrorHandler();
-const { fetchDrafts, findSubjectCompetencyDraft, findDidacticUnitDraft } = useDrafts();
+const { fetchDrafts, findSubjectCompetencyDraft } = useDrafts();
 
 const moduls = ref([]);
 const allModulSubjects = ref([]);
@@ -334,6 +319,7 @@ const allOpSubjects = ref([]);
 const loading = ref(true);
 const editingCompetencyId = ref(null);
 const editForms = ref({});
+const didacticUnitsByCompetency = ref({}); // Для хранения ДЕ: key = "subjectType_subjectId_competencyId"
 
 // Для редактора черновиков
 const showDraftEditor = ref(false);
@@ -415,6 +401,9 @@ const fetchData = async () => {
             ...modul,
             prof_competencies: allCompetencies.value.filter(comp => comp.id_module === modul.id)
         }));
+
+        // Загружаем ДЕ для проверки их утверждения
+        await loadDidacticUnitsForRelations();
     } catch (error) {
         handleError(error, 'Ошибка загрузки данных');
     } finally {
@@ -624,101 +613,68 @@ const onDraftSaved = async () => {
     await fetchDrafts(); // Обновляем список черновиков
     // Обновляем карту черновиков
     await fetchData(); // Перезагружаем данные для обновления визуальных индикаторов
+    // Обновляем ДЕ для проверки утверждения
+    await loadDidacticUnitsForRelations();
 };
 
-// Для редактора черновиков ДЕ
-const showDidacticUnitDraftEditor = ref(false);
-const didacticUnitDraftEditorData = ref({
-    subjectType: '',
-    subjectId: null,
-    subjectName: '',
-    competencyId: null,
-    competencyName: '',
-    currentUnits: [],
-    allDidacticUnits: [],
-    existingDraft: null,
-    draftBatchId: null,
-    isMove: false,
-    originalCompetencyId: null,
-    originalSubjectType: null,
-    originalSubjectId: null
-});
+// Проверка утверждения всех ДЕ для связи
+const areDidacticUnitsApproved = (subjectType, subjectId, competencyId) => {
+    const key = `${subjectType}_${subjectId}_${competencyId}`;
+    const units = didacticUnitsByCompetency.value[key] || [];
+    if (units.length === 0) return false; // Если нет ДЕ, считаем что не утверждено
+    // Проверяем разные форматы данных (boolean, int, string)
+    return units.every(unit => {
+        const approved = unit.approved;
+        return approved === true || approved === 1 || approved === '1';
+    });
+};
 
-const handleOpenDidacticUnitDraftEditor = async (data) => {
+// Загрузка ДЕ для проверки их утверждения
+const loadDidacticUnitsForRelations = async () => {
     try {
-        // Загружаем все ДЕ
-        const unitsResponse = await axios.get('/api/didactic-units');
-        const allDidacticUnits = unitsResponse.data || [];
+        // Собираем все комбинации subject_type, subject_id, competency_id из всех модулей
+        const subjectsToLoad = [];
         
-        // Если это перенос (есть originalCompetencyId), загружаем ДЕ из старого ПК
-        let currentUnits = [];
-        if (data.originalCompetencyId && data.originalSubjectType && data.originalSubjectId) {
-            // Загружаем ДЕ из старого ПК (откуда переносим)
-            const originalKey = `${data.originalSubjectType}_${data.originalSubjectId}_${data.originalCompetencyId}`;
-            try {
-                const response = await axios.post('/api/didactic-units/bulk-load-by-subjects', {
-                    subjects: [{
-                        subject_type: data.originalSubjectType,
-                        subject_id: data.originalSubjectId,
-                        competency_id: data.originalCompetencyId
-                    }]
+        moduls.value.forEach(modul => {
+            modul.prof_competencies?.forEach(comp => {
+                // Добавляем МДК
+                comp.modul_subjects?.forEach(mdk => {
+                    subjectsToLoad.push({
+                        subject_type: 'modul',
+                        subject_id: mdk.id,
+                        competency_id: comp.id
+                    });
                 });
-                currentUnits = response.data[originalKey] || [];
-                console.log('Loaded units from original PC:', currentUnits);
-            } catch (e) {
-                console.warn('Error loading units from original PC:', e);
-                currentUnits = [];
-            }
-        } else {
-            // Загружаем текущие ДЕ для этой связи (если есть)
-            const key = `${data.subjectType}_${data.subjectId}_${data.competencyId}`;
-            try {
-                const response = await axios.post('/api/didactic-units/bulk-load-by-subjects', {
-                    subjects: [{
-                        subject_type: data.subjectType,
-                        subject_id: data.subjectId,
-                        competency_id: data.competencyId
-                    }]
+                
+                // Добавляем ОП
+                comp.op_subjects?.forEach(op => {
+                    subjectsToLoad.push({
+                        subject_type: 'op',
+                        subject_id: op.id,
+                        competency_id: comp.id
+                    });
                 });
-                currentUnits = response.data[key] || [];
-            } catch (e) {
-                currentUnits = [];
-            }
+            });
+        });
+        
+        if (subjectsToLoad.length === 0) {
+            return;
         }
         
-        // Ищем существующий черновик ДЕ
-        const existingDraft = await findDidacticUnitDraft(data.subjectType, data.subjectId, data.competencyId);
+        // Один запрос для загрузки всех ДЕ
+        const response = await axios.post('/api/didactic-units/bulk-load-by-subjects', {
+            subjects: subjectsToLoad
+        });
         
-        didacticUnitDraftEditorData.value = {
-            subjectType: data.subjectType,
-            subjectId: data.subjectId,
-            subjectName: data.subjectName,
-            competencyId: data.competencyId, // Новый ПК
-            competencyName: data.competencyName,
-            currentUnits, // ДЕ из старого ПК (если перенос) или текущие ДЕ
-            allDidacticUnits,
-            existingDraft: existingDraft || null,
-            draftBatchId: data.draftBatchId || null,
-            // Информация о переносе
-            isMove: !!(data.originalCompetencyId && data.originalSubjectType && data.originalSubjectId),
-            originalCompetencyId: data.originalCompetencyId || null,
-            originalSubjectType: data.originalSubjectType || null,
-            originalSubjectId: data.originalSubjectId || null
-        };
-        
-        showDidacticUnitDraftEditor.value = true;
+        // Заполняем didacticUnitsByCompetency данными из ответа
+        Object.keys(response.data).forEach(key => {
+            didacticUnitsByCompetency.value[key] = response.data[key];
+        });
     } catch (error) {
-        handleError(error, 'Ошибка открытия редактора черновиков ДЕ');
+        console.warn('Ошибка загрузки ДЕ для проверки утверждения:', error);
     }
 };
 
-const closeDidacticUnitDraftEditor = () => {
-    showDidacticUnitDraftEditor.value = false;
-};
-
-const onDidacticUnitDraftSaved = async () => {
-    await fetchDrafts(); // Обновляем список черновиков
-};
 
 onMounted(() => {
     fetchData();

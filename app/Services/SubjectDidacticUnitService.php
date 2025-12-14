@@ -25,10 +25,11 @@ class SubjectDidacticUnitService
         array $didacticUnitIds,
         bool $approve = false
     ): void {
-        // Удаляем все старые связи для этой пары предмет-ПК
+        // Удаляем все старые связи для этой пары предмет-ПК (только исходные, не версионированные)
         SubjectDidacticUnitProfCompetency::where('subject_id', $subjectId)
             ->where('subject_type', $subjectType)
             ->where('prof_competency_id', $profCompetencyId)
+            ->whereNull('approved_version_id') // Только исходные данные
             ->delete();
         
         // Добавляем новые связи
@@ -58,6 +59,7 @@ class SubjectDidacticUnitService
         SubjectDidacticUnitProfCompetency::where('subject_type', $subjectType)
             ->where('subject_id', $subjectId)
             ->where('prof_competency_id', $profCompetencyId)
+            ->whereNull('approved_version_id') // Только исходные данные
             ->update(['approved' => true]);
     }
     
@@ -72,6 +74,7 @@ class SubjectDidacticUnitService
         SubjectDidacticUnitProfCompetency::where('subject_type', $subjectType)
             ->where('subject_id', $subjectId)
             ->where('prof_competency_id', $profCompetencyId)
+            ->whereNull('approved_version_id') // Только исходные данные
             ->update(['approved' => false]);
     }
 
@@ -91,6 +94,7 @@ class SubjectDidacticUnitService
         return SubjectDidacticUnitProfCompetency::where('subject_type', $subjectType)
             ->where('subject_id', $subjectId)
             ->where('prof_competency_id', $profCompetencyId)
+            ->whereNull('approved_version_id') // Только исходные данные, не версионированные
             ->with('didacticUnit:id,name,type')
             ->get()
             ->map(function ($item) {
@@ -128,6 +132,7 @@ class SubjectDidacticUnitService
             $modulCompetencyIds = array_unique(array_column($modulQueries, 'competency_id'));
             
             $modulUnits = SubjectDidacticUnitProfCompetency::where('subject_type', 'modul')
+                ->whereNull('approved_version_id') // Только исходные данные, не версионированные
                 ->whereIn('subject_id', $modulSubjectIds)
                 ->whereIn('prof_competency_id', $modulCompetencyIds)
                 ->with('didacticUnit:id,name,type')
@@ -158,6 +163,7 @@ class SubjectDidacticUnitService
             $opCompetencyIds = array_unique(array_column($opQueries, 'competency_id'));
             
             $opUnits = SubjectDidacticUnitProfCompetency::where('subject_type', 'op')
+                ->whereNull('approved_version_id') // Только исходные данные, не версионированные
                 ->whereIn('subject_id', $opSubjectIds)
                 ->whereIn('prof_competency_id', $opCompetencyIds)
                 ->with('didacticUnit:id,name,type')

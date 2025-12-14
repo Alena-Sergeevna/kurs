@@ -18,7 +18,8 @@ class SubjectDidacticUnitProfCompetency extends Model
         'subject_id',
         'didactic_unit_id',
         'prof_competency_id',
-        'approved'
+        'approved',
+        'approved_version_id'
     ];
     
     protected $casts = [

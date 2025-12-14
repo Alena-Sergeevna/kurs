@@ -50,6 +50,18 @@ export function useDrafts() {
     const getPreview = async (draftBatchId) => {
         try {
             const response = await axios.get(`/api/drafts/${draftBatchId}/preview`);
+            
+            // Проверяем структуру ответа
+            if (response.data && typeof response.data === 'object') {
+                // Убеждаемся, что поля есть, даже если пустые
+                if (!response.data.subject_competency_changes) {
+                    response.data.subject_competency_changes = [];
+                }
+                if (!response.data.didactic_unit_changes) {
+                    response.data.didactic_unit_changes = [];
+                }
+            }
+            
             return response.data;
         } catch (error) {
             handleError(error, 'Ошибка получения предпросмотра');

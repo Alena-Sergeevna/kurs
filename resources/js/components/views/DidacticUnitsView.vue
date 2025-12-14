@@ -78,8 +78,28 @@
                                                 </svg>
                                                 Утвердить ДЕ
                                             </button>
+                                            <button
+                                                v-if="isCompetencyApproved('mdk', mdk.id, competency.id) && areDidacticUnitsApproved('modul', mdk.id, competency.id)"
+                                                @click="openDidacticUnitDraftEditor('modul', mdk.id, mdk.name, competency.id, competency.name, getModuleIdForSubject('mdk', mdk.id))"
+                                                class="px-3 py-1.5 rounded-lg transition-all duration-200 text-xs font-medium shadow-md hover:shadow-lg flex items-center gap-1"
+                                                :class="hasDidacticUnitDraft('modul', mdk.id, competency.id)
+                                                    ? 'bg-yellow-500 hover:bg-yellow-600 text-white'
+                                                    : 'bg-blue-500 hover:bg-blue-600 text-white'"
+                                                :title="hasDidacticUnitDraft('modul', mdk.id, competency.id) ? 'Редактировать оценку ДЕ' : 'Оценить ДЕ'"
+                                            >
+                                                <svg v-if="hasDidacticUnitDraft('modul', mdk.id, competency.id)" class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                                </svg>
+                                                <svg v-else class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                                                </svg>
+                                                {{ hasDidacticUnitDraft('modul', mdk.id, competency.id) ? 'Редактировать оценку' : 'Оценить ДЕ' }}
+                                            </button>
                                             <div v-if="!isCompetencyApproved('mdk', mdk.id, competency.id)" class="px-3 py-1.5 text-xs text-gray-400 italic">
                                                 Сначала утвердите связь
+                                            </div>
+                                            <div v-else-if="!areDidacticUnitsApproved('modul', mdk.id, competency.id) && !hasDidacticUnits('modul', mdk.id, competency.id)" class="px-3 py-1.5 text-xs text-gray-400 italic">
+                                                Добавьте ДЕ
                                             </div>
                                         </div>
                                     </div>
@@ -159,8 +179,28 @@
                                                 </svg>
                                                 Утвердить ДЕ
                                             </button>
+                                            <button
+                                                v-if="isCompetencyApproved('op', op.id, competency.id) && areDidacticUnitsApproved('op', op.id, competency.id)"
+                                                @click="openDidacticUnitDraftEditor('op', op.id, op.name, competency.id, competency.name, getModuleIdForSubject('op', op.id))"
+                                                class="px-3 py-1.5 rounded-lg transition-all duration-200 text-xs font-medium shadow-md hover:shadow-lg flex items-center gap-1"
+                                                :class="hasDidacticUnitDraft('op', op.id, competency.id)
+                                                    ? 'bg-yellow-500 hover:bg-yellow-600 text-white'
+                                                    : 'bg-purple-500 hover:bg-purple-600 text-white'"
+                                                :title="hasDidacticUnitDraft('op', op.id, competency.id) ? 'Редактировать оценку ДЕ' : 'Оценить ДЕ'"
+                                            >
+                                                <svg v-if="hasDidacticUnitDraft('op', op.id, competency.id)" class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                                </svg>
+                                                <svg v-else class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                                                </svg>
+                                                {{ hasDidacticUnitDraft('op', op.id, competency.id) ? 'Редактировать оценку' : 'Оценить ДЕ' }}
+                                            </button>
                                             <div v-if="!isCompetencyApproved('op', op.id, competency.id)" class="px-3 py-1.5 text-xs text-gray-400 italic">
                                                 Сначала утвердите связь
+                                            </div>
+                                            <div v-else-if="!areDidacticUnitsApproved('op', op.id, competency.id) && !hasDidacticUnits('op', op.id, competency.id)" class="px-3 py-1.5 text-xs text-gray-400 italic">
+                                                Добавьте ДЕ
                                             </div>
                                         </div>
                                     </div>
@@ -255,21 +295,7 @@
             </template>
         </Modal>
 
-        <!-- Редактор черновиков ДЕ -->
-        <DidacticUnitDraftEditor
-            :show="showDidacticUnitDraftEditor"
-            :subject-type="didacticUnitDraftEditorData.subjectType"
-            :subject-id="didacticUnitDraftEditorData.subjectId"
-            :subject-name="didacticUnitDraftEditorData.subjectName"
-            :competency-id="didacticUnitDraftEditorData.competencyId"
-            :competency-name="didacticUnitDraftEditorData.competencyName"
-            :current-units="didacticUnitDraftEditorData.currentUnits"
-            :all-didactic-units="didacticUnits"
-            :existing-draft="didacticUnitDraftEditorData.existingDraft"
-            :draft-batch-id="didacticUnitDraftEditorData.draftBatchId"
-            @close="closeDidacticUnitDraftEditor"
-            @saved="onDidacticUnitDraftSaved"
-        />
+        <!-- Редактор черновиков ДЕ - теперь используется отдельная страница для всех связей -->
     </div>
 </template>
 
@@ -278,7 +304,7 @@ import { ref, onMounted, computed } from 'vue';
 import axios from 'axios';
 import Modal from '../ui/Modal.vue';
 import DidacticUnitEditor from '../ui/DidacticUnitEditor.vue';
-import DidacticUnitDraftEditor from '../ui/DidacticUnitDraftEditor.vue';
+// DidacticUnitDraftEditor больше не используется - используем отдельную страницу для всех связей
 import { useErrorHandler } from '../../composables/useErrorHandler';
 import { useDrafts } from '../../composables/useDrafts';
 
@@ -468,19 +494,7 @@ const getModuleIdForSubject = (subjectType, subjectId) => {
     }
 };
 
-// Открыть редактор черновиков ДЕ
-// Для редактора черновиков ДЕ
-const showDidacticUnitDraftEditor = ref(false);
-const didacticUnitDraftEditorData = ref({
-    subjectType: '',
-    subjectId: null,
-    subjectName: '',
-    competencyId: null,
-    competencyName: '',
-    currentUnits: [],
-    existingDraft: null,
-    draftBatchId: null
-});
+// Редактор черновиков ДЕ - теперь используется отдельная страница для всех связей
 
 const openDidacticUnitDraftEditor = async (subjectType, subjectId, subjectName, competencyId, competencyName, moduleId) => {
     // Проверяем утверждение связи
@@ -490,40 +504,52 @@ const openDidacticUnitDraftEditor = async (subjectType, subjectId, subjectName, 
     }
     
     try {
-        // Загружаем текущие ДЕ для этой связи
         const apiSubjectType = subjectType === 'modul' ? 'modul' : 'op';
-        const key = `${apiSubjectType}_${subjectId}_${competencyId}`;
-        const currentUnits = didacticUnitsByCompetency.value[key] || [];
         
-        // Ищем существующий черновик
+        // Ищем существующий черновик - если есть, используем его draft_batch_id
         const existingDraft = await findDidacticUnitDraft(apiSubjectType, subjectId, competencyId);
         
-        didacticUnitDraftEditorData.value = {
-            subjectType: apiSubjectType,
-            subjectId,
-            subjectName,
-            competencyId,
-            competencyName,
-            currentUnits,
-            allDidacticUnits: didacticUnits.value,
-            existingDraft: existingDraft || null,
-            draftBatchId: existingDraft?.draft_batch_id || null
-        };
+        // Загружаем текущие ДЕ для этой связи
+        const key = `${apiSubjectType}_${subjectId}_${competencyId}`;
+        let currentUnits = didacticUnitsByCompetency.value[key] || [];
         
-        showDidacticUnitDraftEditor.value = true;
+        // Если ДЕ нет в кэше, загружаем их
+        if (currentUnits.length === 0) {
+            try {
+                const response = await axios.post('/api/didactic-units/bulk-load-by-subjects', {
+                    subjects: [{
+                        subject_type: apiSubjectType,
+                        subject_id: subjectId,
+                        competency_id: competencyId
+                    }]
+                });
+                currentUnits = response.data[key] || [];
+            } catch (e) {
+                console.warn('Error loading units:', e);
+                currentUnits = [];
+            }
+        }
+        
+        // Перенаправляем на отдельную страницу для оценки ДЕ
+        // Для старых связей (isMove: false) - это существующая связь, не новая
+        const params = {
+            draftBatchId: existingDraft?.draft_batch_id || null,
+            subjectType: apiSubjectType,
+            subjectId: subjectId,
+            subjectName: subjectName,
+            competencyId: competencyId,
+            competencyName: competencyName,
+            isMove: false, // Старая связь, не перенос
+            originalCompetencyId: null
+        };
+        localStorage.setItem('draftDidacticUnitsParams', JSON.stringify(params));
+        window.dispatchEvent(new CustomEvent('change-view', { detail: 'draft-didactic-units' }));
     } catch (error) {
         handleError(error, 'Ошибка открытия редактора черновиков ДЕ');
     }
 };
 
-const closeDidacticUnitDraftEditor = () => {
-    showDidacticUnitDraftEditor.value = false;
-};
-
-const onDidacticUnitDraftSaved = async () => {
-    // Обновляем данные после сохранения
-    await loadDidacticUnitsForDisplay();
-};
+// Функции для модалки больше не используются - используем отдельную страницу
 
 // Загрузка черновиков ДЕ
 const loadDidacticUnitDrafts = async () => {

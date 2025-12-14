@@ -52,7 +52,7 @@
                             />
                             <div>
                                 <div class="font-medium">Оставить связь</div>
-                                <div class="text-sm text-gray-600">Оставить как есть, но можно изменить ДЕ</div>
+                                <div class="text-sm text-gray-600">Оставить связь как есть</div>
                             </div>
                         </label>
 
@@ -122,26 +122,6 @@
                     ></textarea>
                 </div>
 
-                <!-- Кнопка оценки ДЕ (только для переноса) -->
-                <div v-if="draftData.action === 'move' && draftData.new_prof_competency_id && draftData.new_prof_competency_id !== draftData.original_prof_competency_id">
-                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                        <div class="flex items-center justify-between">
-                            <div>
-                                <h4 class="font-semibold text-blue-900 mb-1">Оценка дидактических единиц</h4>
-                                <p class="text-sm text-blue-700">После переноса можно оценить ДЕ для нового ПК</p>
-                            </div>
-                            <button
-                                @click="openDidacticUnitDraftEditor"
-                                class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors text-sm font-medium flex items-center gap-2"
-                            >
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-                                </svg>
-                                Оценить ДЕ
-                            </button>
-                        </div>
-                    </div>
-                </div>
 
                 <!-- Кнопки -->
                 <div class="flex justify-end gap-3 pt-4 border-t">
@@ -212,7 +192,7 @@ const props = defineProps({
     }
 });
 
-const emit = defineEmits(['close', 'saved', 'openDidacticUnitDraftEditor']);
+const emit = defineEmits(['close', 'saved']);
 
 const { handleError } = useErrorHandler();
 
@@ -291,64 +271,36 @@ const closeModal = () => {
 
 const saveDraft = async () => {
     try {
+        // Генерируем draft_batch_id, если его нет
+        let draftBatchId = props.draftBatchId;
+        if (!draftBatchId) {
+            draftBatchId = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                const r = Math.random() * 16 | 0;
+                const v = c === 'x' ? r : (r & 0x3 | 0x8);
+                return v.toString(16);
+            });
+        }
+        
         const data = {
             ...draftData.value,
             new_prof_competency_id: draftData.value.action === 'move' 
                 ? draftData.value.new_prof_competency_id 
                 : draftData.value.original_prof_competency_id,
-            draft_batch_id: props.draftBatchId || undefined
+            draft_batch_id: draftBatchId
         };
 
+        console.log('Saving draft with data:', data);
         const response = await axios.post('/api/drafts/subject-competency', data);
-        const savedDraftBatchId = response.data?.draft?.draft_batch_id || props.draftBatchId;
+        console.log('Draft saved, response:', response.data);
         
         emit('saved');
-        
-        // Если это перенос, предлагаем оценить ДЕ
-        if (draftData.value.action === 'move' && draftData.value.new_prof_competency_id) {
-            emit('openDidacticUnitDraftEditor', {
-                subjectType: draftData.value.new_subject_type || draftData.value.original_subject_type,
-                subjectId: draftData.value.new_subject_id || draftData.value.original_subject_id,
-                subjectName: draftData.value.subjectName,
-                competencyId: draftData.value.new_prof_competency_id, // Новый ПК
-                competencyName: getNewCompetencyName(),
-                moduleId: props.competencyModuleId,
-                draftBatchId: savedDraftBatchId,
-                // Информация о старом ПК для загрузки ДЕ
-                originalCompetencyId: draftData.value.original_prof_competency_id,
-                originalSubjectType: draftData.value.original_subject_type,
-                originalSubjectId: draftData.value.original_subject_id
-            });
-        }
-        
         closeModal();
     } catch (error) {
+        console.error('Error saving draft:', error);
         handleError(error, 'Ошибка сохранения черновика');
     }
 };
 
-const openDidacticUnitDraftEditor = () => {
-    // Эмитим событие с данными для нового ПК
-    emit('openDidacticUnitDraftEditor', {
-        subjectType: draftData.value.new_subject_type || draftData.value.original_subject_type,
-        subjectId: draftData.value.new_subject_id || draftData.value.original_subject_id,
-        subjectName: draftData.value.subjectName,
-        competencyId: draftData.value.new_prof_competency_id, // Новый ПК
-        competencyName: getNewCompetencyName(),
-        moduleId: props.competencyModuleId,
-        draftBatchId: props.draftBatchId,
-        // Информация о старом ПК для загрузки ДЕ
-        originalCompetencyId: draftData.value.original_prof_competency_id,
-        originalSubjectType: draftData.value.original_subject_type,
-        originalSubjectId: draftData.value.original_subject_id
-    });
-};
-
-const getNewCompetencyName = () => {
-    if (!draftData.value.new_prof_competency_id) return '';
-    const comp = props.availableCompetencies?.find(c => c.id === draftData.value.new_prof_competency_id);
-    return comp?.name || '';
-};
 </script>
 
 <style scoped>

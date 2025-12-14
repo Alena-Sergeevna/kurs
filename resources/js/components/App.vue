@@ -85,18 +85,30 @@
                         </svg>
                         <span>Анализ дубликатов</span>
                     </button>
-                    <button
-                        @click="setCurrentView('drafts')"
-                        class="w-full flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition-all duration-200 text-left"
-                        :class="currentView === 'drafts' 
-                            ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg' 
-                            : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-200'"
-                    >
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                        </svg>
-                        <span>Черновики</span>
-                    </button>
+                        <button
+                            @click="setCurrentView('drafts')"
+                            class="w-full flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition-all duration-200 text-left"
+                            :class="currentView === 'drafts' 
+                                ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg' 
+                                : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-200'"
+                        >
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            <span>Черновики</span>
+                        </button>
+                        <button
+                            @click="setCurrentView('versions')"
+                            class="w-full flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition-all duration-200 text-left"
+                            :class="currentView === 'versions' 
+                                ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-lg' 
+                                : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-200'"
+                        >
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span>Версии</span>
+                        </button>
                 </nav>
             </div>
         </aside>
@@ -132,8 +144,11 @@
                         <RelationsTable v-if="currentView === 'table'" />
                         <DidacticUnitsView v-if="currentView === 'didactic'" />
                         <DidacticUnitsTable v-if="currentView === 'didactic-table'" />
-                        <DuplicatesAnalysisView v-if="currentView === 'duplicates'" />
+                            <DuplicatesAnalysisView v-if="currentView === 'duplicates'" />
                         <DraftsListView v-if="currentView === 'drafts'" />
+                        <DraftDidacticUnitsView v-if="currentView === 'draft-didactic-units'" />
+                        <VersionsListView v-if="currentView === 'versions'" />
+                            <VersionsListView v-if="currentView === 'versions'" />
                     </div>
                 </div>
             </main>
@@ -153,6 +168,8 @@ import DidacticUnitsView from './views/DidacticUnitsView.vue';
 import DidacticUnitsTable from './views/DidacticUnitsTable.vue';
 import DuplicatesAnalysisView from './views/DuplicatesAnalysisView.vue';
 import DraftsListView from './views/DraftsListView.vue';
+import DraftDidacticUnitsView from './views/DraftDidacticUnitsView.vue';
+import VersionsListView from './views/VersionsListView.vue';
 import ErrorNotification from './ui/ErrorNotification.vue';
 import ConfirmDialog from './ui/ConfirmDialog.vue';
 
@@ -179,22 +196,36 @@ const getCurrentViewTitle = () => {
         'didactic': 'Дидактические единицы',
         'didactic-table': 'Таблица ДЕ',
         'duplicates': 'Анализ дубликатов',
-        'drafts': 'Черновики'
+        'drafts': 'Черновики',
+        'draft-didactic-units': 'Управление ДЕ в черновике',
+        'versions': 'Версии изменений'
     };
     return titles[currentView.value] || 'Управление ДЕ';
 };
 
+// Слушаем событие изменения view
+const handleViewChange = (event) => {
+    console.log('change-view event received:', event.detail);
+    if (event.detail && ['relations', 'table', 'didactic', 'didactic-table', 'duplicates', 'drafts', 'draft-didactic-units', 'versions'].includes(event.detail)) {
+        console.log('Setting current view to:', event.detail);
+        setCurrentView(event.detail);
+    }
+};
+
 // Восстанавливаем view из localStorage при загрузке
 onMounted(() => {
-    const savedView = localStorage.getItem('currentView');
-    if (savedView && ['relations', 'table', 'didactic', 'didactic-table', 'duplicates', 'drafts'].includes(savedView)) {
-        currentView.value = savedView;
-    }
+        const savedView = localStorage.getItem('currentView');
+        if (savedView && ['relations', 'table', 'didactic', 'didactic-table', 'duplicates', 'drafts', 'draft-didactic-units', 'versions'].includes(savedView)) {
+            currentView.value = savedView;
+        }
     
     const savedSidebarState = localStorage.getItem('sidebarOpen');
     if (savedSidebarState !== null) {
         sidebarOpen.value = savedSidebarState === 'true';
     }
+    
+    // Регистрируем обработчик события изменения view
+    window.addEventListener('change-view', handleViewChange);
 });
 </script>
 

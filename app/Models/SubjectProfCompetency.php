@@ -17,7 +17,8 @@ class SubjectProfCompetency extends Model
         'subject_type',
         'subject_id',
         'prof_competency_id',
-        'approved'
+        'approved',
+        'approved_version_id'
     ];
 
     protected $casts = [
