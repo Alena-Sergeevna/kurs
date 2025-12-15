@@ -322,4 +322,48 @@ class DidacticUnitController extends Controller
         
         return array_values($grouped);
     }
+
+    /**
+     * Удалить все неиспользуемые дидактические единицы
+     * Неиспользуемые - это ДЕ, которые не связаны ни с одним предметом и компетенцией
+     */
+    public function deleteUnused(): JsonResponse
+    {
+        // Получаем ID всех используемых ДЕ (только исходные данные, не версионированные)
+        $usedUnitIds = SubjectDidacticUnitProfCompetency::whereNull('approved_version_id')
+            ->pluck('didactic_unit_id')
+            ->unique()
+            ->toArray();
+        
+        // Находим все неиспользуемые ДЕ
+        $unusedUnits = DidacticUnit::whereNotIn('id', $usedUnitIds)->get();
+        
+        if ($unusedUnits->isEmpty()) {
+            return response()->json([
+                'message' => 'Неиспользуемых дидактических единиц не найдено',
+                'deleted_count' => 0
+            ]);
+        }
+        
+        $deletedCount = 0;
+        
+        // Удаляем каждую неиспользуемую ДЕ вместе с связанными черновиками
+        foreach ($unusedUnits as $unit) {
+            // Удаляем все связанные черновики оценок для этой ДЕ
+            \App\Models\DidacticUnitDraft::where(function($query) use ($unit) {
+                $query->where('original_didactic_unit_id', $unit->id)
+                      ->orWhere('new_didactic_unit_id', $unit->id)
+                      ->orWhereJsonContains('original_didactic_unit_ids', $unit->id);
+            })->delete();
+            
+            // Удаляем саму ДЕ
+            $unit->delete();
+            $deletedCount++;
+        }
+        
+        return response()->json([
+            'message' => "Успешно удалено {$deletedCount} неиспользуемых дидактических единиц",
+            'deleted_count' => $deletedCount
+        ]);
+    }
 }

@@ -24,8 +24,30 @@
                 </span>
             </div>
 
-            <!-- Поле ввода с автодополнением -->
-            <div class="relative">
+            <!-- Режим ввода: переключатель между одним полем и массовым вводом -->
+            <div class="flex items-center gap-2 mb-2">
+                <button
+                    @click="inputMode[type] = 'single'"
+                    :class="inputMode[type] === 'single' 
+                        ? 'bg-blue-500 text-white' 
+                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'"
+                    class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+                >
+                    Одна единица
+                </button>
+                <button
+                    @click="inputMode[type] = 'bulk'"
+                    :class="inputMode[type] === 'bulk' 
+                        ? 'bg-blue-500 text-white' 
+                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'"
+                    class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+                >
+                    Массовый ввод
+                </button>
+            </div>
+
+            <!-- Режим одного поля ввода -->
+            <div v-if="inputMode[type] === 'single'" class="relative">
                 <input
                     v-model="searchQueries[type]"
                     type="text"
@@ -35,6 +57,7 @@
                     @input="searchUnits(type)"
                     @focus="showSuggestions[type] = true"
                     @blur="handleBlur(type)"
+                    @keyup.enter="addNewUnit(type)"
                 />
                 
                 <!-- Подсказки -->
@@ -52,19 +75,74 @@
                         <div class="text-xs text-gray-400 mt-1">Нажмите, чтобы использовать текст</div>
                     </div>
                 </div>
+
+                <!-- Кнопка добавления одной единицы -->
+                <button
+                    v-if="searchQueries[type] && searchQueries[type].trim()"
+                    @click="addNewUnit(type)"
+                    class="w-full mt-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white rounded-lg transition-all duration-200 font-semibold shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
+                >
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                    </svg>
+                    Добавить "{{ searchQueries[type] }}"
+                </button>
             </div>
 
-            <!-- Кнопка добавления -->
-            <button
-                v-if="searchQueries[type] && searchQueries[type].trim()"
-                @click="addNewUnit(type)"
-                class="w-full px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white rounded-lg transition-all duration-200 font-semibold shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
-            >
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                </svg>
-                Добавить "{{ searchQueries[type] }}"
-            </button>
+            <!-- Режим массового ввода -->
+            <div v-else class="space-y-3">
+                <div class="relative">
+                    <textarea
+                        v-model="bulkInputs[type]"
+                        placeholder="Введите несколько единиц, каждую с новой строки..."
+                        rows="8"
+                        class="w-full px-4 py-3 border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all font-mono text-sm resize-y"
+                        :class="bulkInputs[type] ? 'border-blue-300' : 'border-gray-200'"
+                    ></textarea>
+                    <div class="mt-1 text-xs text-gray-500 space-y-1">
+                        <div>💡 Скопируйте список единиц и вставьте сюда. Каждая строка будет отдельной единицей.</div>
+                        <div class="bg-gray-100 px-2 py-1 rounded text-gray-600 font-mono">
+                            Пример:<br>
+                            Первая единица<br>
+                            Вторая единица<br>
+                            Третья единица
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Предпросмотр единиц для добавления -->
+                <div v-if="getBulkUnitsPreview(type).length > 0" class="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                    <div class="text-xs font-semibold text-gray-600 mb-2">
+                        Будет добавлено единиц: {{ getBulkUnitsPreview(type).length }}
+                    </div>
+                    <div class="max-h-32 overflow-y-auto space-y-1">
+                        <div
+                            v-for="(unit, index) in getBulkUnitsPreview(type)"
+                            :key="index"
+                            class="text-xs text-gray-700 bg-white px-2 py-1 rounded border border-gray-200"
+                        >
+                            {{ index + 1 }}. {{ unit }}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Кнопка добавления всех единиц -->
+                <button
+                    v-if="getBulkUnitsPreview(type).length > 0"
+                    @click="addBulkUnits(type)"
+                    :disabled="isAddingBulk[type]"
+                    class="w-full px-4 py-3 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 disabled:from-gray-400 disabled:to-gray-500 text-white rounded-lg transition-all duration-200 font-semibold shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
+                >
+                    <svg v-if="!isAddingBulk[type]" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                    </svg>
+                    <svg v-else class="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    {{ isAddingBulk[type] ? 'Добавление...' : `Добавить все (${getBulkUnitsPreview(type).length})` }}
+                </button>
+            </div>
         </div>
     </div>
 </template>
@@ -101,6 +179,9 @@ const selectedUnits = ref({});
 const searchQueries = ref({});
 const showSuggestions = ref({});
 const suggestions = ref({});
+const inputMode = ref({}); // 'single' или 'bulk'
+const bulkInputs = ref({}); // Массовый ввод для каждого типа
+const isAddingBulk = ref({}); // Флаг загрузки для массового добавления
 
 const typeColor = {
     'знать': 'bg-blue-500',
@@ -121,6 +202,9 @@ const initializeData = () => {
         searchQueries.value[type] = '';
         showSuggestions.value[type] = false;
         suggestions.value[type] = [];
+        inputMode.value[type] = 'single'; // По умолчанию режим одного поля
+        bulkInputs.value[type] = '';
+        isAddingBulk.value[type] = false;
     });
 };
 
@@ -264,6 +348,74 @@ const updateModelValue = () => {
         newValue[type] = selectedUnits.value[type].map(u => u.id);
     });
     emit('update:modelValue', newValue);
+};
+
+// Получить предпросмотр единиц из массового ввода
+const getBulkUnitsPreview = (type) => {
+    if (!bulkInputs.value[type]) return [];
+    
+    return bulkInputs.value[type]
+        .split('\n')
+        .map(line => line.trim())
+        .filter(line => line.length > 0);
+};
+
+// Добавить все единицы из массового ввода
+const addBulkUnits = async (type) => {
+    const units = getBulkUnitsPreview(type);
+    if (units.length === 0) return;
+    
+    isAddingBulk.value[type] = true;
+    
+    try {
+        const typeEn = props.typeMapping[type];
+        const promises = units.map(text => 
+            axios.post('/api/didactic-units', {
+                type: typeEn,
+                name: text.trim()
+            }).then(response => ({ success: true, data: response.data }))
+              .catch(error => ({ success: false, error, text: text.trim() }))
+        );
+        
+        const results = await Promise.all(promises);
+        
+        // Разделяем успешные и неудачные
+        const successful = results.filter(r => r.success).map(r => r.data);
+        const failed = results.filter(r => !r.success);
+        
+        // Добавляем все успешно созданные единицы в выбранные
+        successful.forEach(unit => {
+            selectedUnits.value[type].push({
+                id: unit.id,
+                name: unit.name
+            });
+        });
+        
+        updateModelValue();
+        
+        // Очищаем поле массового ввода только если все успешно
+        if (failed.length === 0) {
+            bulkInputs.value[type] = '';
+        } else {
+            // Оставляем только неудачные единицы в поле ввода
+            bulkInputs.value[type] = failed.map(f => f.text).join('\n');
+        }
+        
+        // Показываем результаты
+        if (successful.length > 0) {
+            console.log(`Успешно добавлено ${successful.length} единиц типа "${type}"`);
+        }
+        if (failed.length > 0) {
+            handleError(new Error(`Не удалось создать ${failed.length} единиц`), 
+                `Ошибка создания ${failed.length} из ${units.length} единиц. Проверьте консоль для деталей.`);
+            console.error('Неудачные единицы:', failed);
+        }
+    } catch (error) {
+        console.error('Ошибка массового создания дидактических единиц:', error);
+        handleError(error, `Ошибка создания единиц типа "${type}"`);
+    } finally {
+        isAddingBulk.value[type] = false;
+    }
 };
 
 // Удаляем watch на selectedUnits, так как updateModelValue вызывается напрямую при изменениях

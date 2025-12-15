@@ -126,15 +126,19 @@ class SubjectDidacticUnitService
             }
         }
 
-        // Загружаем ДЕ для МДК
+        // Загружаем ДЕ для МДК с точной фильтрацией по комбинациям
         if (!empty($modulQueries)) {
-            $modulSubjectIds = array_unique(array_column($modulQueries, 'subject_id'));
-            $modulCompetencyIds = array_unique(array_column($modulQueries, 'competency_id'));
-            
+            // Строим точные условия для каждой комбинации
             $modulUnits = SubjectDidacticUnitProfCompetency::where('subject_type', 'modul')
                 ->whereNull('approved_version_id') // Только исходные данные, не версионированные
-                ->whereIn('subject_id', $modulSubjectIds)
-                ->whereIn('prof_competency_id', $modulCompetencyIds)
+                ->where(function ($query) use ($modulQueries) {
+                    foreach ($modulQueries as $request) {
+                        $query->orWhere(function ($q) use ($request) {
+                            $q->where('subject_id', $request['subject_id'])
+                              ->where('prof_competency_id', $request['competency_id']);
+                        });
+                    }
+                })
                 ->with('didacticUnit:id,name,type')
                 ->get()
                 ->groupBy(function ($item) {
@@ -157,15 +161,19 @@ class SubjectDidacticUnitService
             }
         }
 
-        // Загружаем ДЕ для ОП
+        // Загружаем ДЕ для ОП с точной фильтрацией по комбинациям
         if (!empty($opQueries)) {
-            $opSubjectIds = array_unique(array_column($opQueries, 'subject_id'));
-            $opCompetencyIds = array_unique(array_column($opQueries, 'competency_id'));
-            
+            // Строим точные условия для каждой комбинации
             $opUnits = SubjectDidacticUnitProfCompetency::where('subject_type', 'op')
                 ->whereNull('approved_version_id') // Только исходные данные, не версионированные
-                ->whereIn('subject_id', $opSubjectIds)
-                ->whereIn('prof_competency_id', $opCompetencyIds)
+                ->where(function ($query) use ($opQueries) {
+                    foreach ($opQueries as $request) {
+                        $query->orWhere(function ($q) use ($request) {
+                            $q->where('subject_id', $request['subject_id'])
+                              ->where('prof_competency_id', $request['competency_id']);
+                        });
+                    }
+                })
                 ->with('didacticUnit:id,name,type')
                 ->get()
                 ->groupBy(function ($item) {

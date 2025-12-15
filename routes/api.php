@@ -31,12 +31,14 @@ Route::post('prof-competencies/{id}/approve', [ProfCompetencyController::class, 
 Route::post('prof-competencies/{id}/unapprove', [ProfCompetencyController::class, 'unapproveRelations']);
 
 // Дидактические единицы
-Route::apiResource('didactic-units', DidacticUnitController::class);
+// Специфичные маршруты должны быть ПЕРЕД ресурсным маршрутом, чтобы избежать конфликтов
 Route::get('didactic-units-table', [DidacticUnitController::class, 'table']);
 Route::post('didactic-units/bulk-load-by-subjects', [DidacticUnitController::class, 'bulkLoadBySubjects']);
 Route::get('didactic-units-duplicates', [DidacticUnitController::class, 'duplicates']);
 Route::post('didactic-units/approve', [DidacticUnitController::class, 'approveDidacticUnits']);
 Route::post('didactic-units/unapprove', [DidacticUnitController::class, 'unapproveDidacticUnits']);
+Route::delete('didactic-units/delete-unused', [DidacticUnitController::class, 'deleteUnused']);
+Route::apiResource('didactic-units', DidacticUnitController::class);
 
 // Черновики и версионирование
 use App\Http\Controllers\Api\DraftController;
